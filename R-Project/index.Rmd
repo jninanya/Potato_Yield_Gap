@@ -1,5 +1,5 @@
 ---
-title: "Quantifying effect of planting dates on potential potato yield"
+title: "Decomposition of potato yield gap in the Andean north of Peru"
 subtitle: "A crop modeling approach"
 author: "Johan Ninanya (noni)"
 date: "`r Sys.Date()`"
@@ -19,10 +19,12 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 ## Background
 
-This R markdown notebook aims to document the simulation exercise performed by Ramírez et al. (2024). The [SOLANUM](https://cipotato.org/site/inrm/home/downmod.htm) model was used to determine the potential potato yield (Yp) and "roughly" quantify the effect of planting dates on Yp. The model was calibrated using the [SOLANUM's Parameter Estimator](https://doi.org/10.1515/opag-2018-0019) and fed with weather data from [NASA POWER](https://cran.r-project.org/web/packages/nasapower/index.html)
+This repository is designed to provide comprehensive documentation of the R code used for the analysis of yield gap decomposition, integrating both crop modeling and stochastic frontier analysis.
 
 
-## Load libraries and extra R-files
+## Libraries and extra R-files
+
+The following libraries were used:
 
 ```{r}
 # libraries
@@ -30,7 +32,11 @@ library(nasapower)
 library(meteor)
 library(lubridate)
 library(dplyr)
+```
 
+Additionally, extra R-files need to be loaded. 
+
+```{r}
 # extra R-files
 load(url("https://github.com/jninanya/Ramirez-et-al-2024/raw/main/solanumR/CropParamsList.Rdata"))
 source("https://raw.githubusercontent.com/jninanya/Ramirez-et-al-2024/main/solanumR/thermalTime.R")
@@ -39,7 +45,7 @@ source("https://raw.githubusercontent.com/jninanya/Ramirez-et-al-2024/main/solan
 ```
 
 
-## Weather data retrieving
+## Field experiment and data collection
 
 ```{r}
 # define variables (wvars) and period
@@ -153,7 +159,7 @@ legend(x = "topright", legend = "SRAD", col = "#B45F06",
 
 ```
 
-## ddd
+## Biass correction of weather data
 
 ```{r}
 # data for model calibration
@@ -217,7 +223,9 @@ CropParamsList$BariAlu72
 CropParamsList$BariAlu78
 ```
 
-## XX
+## Determination of optimum planting date
+
+## Determination of potential yields
 
 ```{r}
 
@@ -334,7 +342,7 @@ axis(side = 1, at = c(1,2,3.2,4.2),
 
 
 
-## Thermal time computing
+## Survey data collection
 
 ```{r}
 
@@ -484,6 +492,8 @@ weather <- wdata
 
 
 ```
+
+## Stochastic Frontier Analysis
 
 
 ## References
