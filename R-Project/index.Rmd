@@ -47,6 +47,16 @@ source("https://raw.githubusercontent.com/jninanya/Ramirez-et-al-2024/main/solan
 
 ## Field experiment and data collection
 
+xxx
+xxxx
+
+<!-- Figure 01 -->
+<a id="Figure01"></a>
+<div style="text-align:center;">
+  ![**Figura 1:** Parameter Estimator tool of the SOLANUM model.](https://github.com/jninanya/Ramirez-et-al-2024/blob/main/solanumR/Figures/Parameter-Estimator-Tool.png?raw=true){width=81%}
+  <p style="margin-bottom: 10px;"></p> <!-- Add some space below the image caption -->
+</div>
+
 ```{r}
 # define variables (wvars) and period
 wvars <- c("T2M_MAX", "T2M_MIN", "ALLSKY_SFC_SW_DWN")
