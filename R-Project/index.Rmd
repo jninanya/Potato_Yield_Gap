@@ -38,22 +38,21 @@ Additionally, extra R-files need to be loaded.
 
 ```{r}
 # extra R-files
-load(url("https://github.com/jninanya/Ramirez-et-al-2024/raw/main/solanumR/CropParamsList.Rdata"))
-source("https://raw.githubusercontent.com/jninanya/Ramirez-et-al-2024/main/solanumR/thermalTime.R")
-source("https://raw.githubusercontent.com/jninanya/Ramirez-et-al-2024/main/solanumR/SolanumModel.R")
+load(url("https://github.com/jninanya/solanumR/raw/refs/heads/main/CropParamsList.Rdata"))
+source("https://raw.githubusercontent.com/jninanya/solanumR/refs/heads/main/thermalTime.R")
+source("https://raw.githubusercontent.com/jninanya/solanumR/refs/heads/main/SolanumModel.R")
 
 ```
 
 
 ## Field experiment and data collection
 
-xxx
-xxxx
+A field experiment was performed to determine the potential yield of the 5 most common used potato varieties in Chugay, La Libertad, Peru. 
 
 <!-- Figure 01 -->
 <a id="Figure01"></a>
 <div style="text-align:center;">
-  ![**Figura 1:** Parameter Estimator tool of the SOLANUM model.](https://github.com/jninanya/Potato_Yield_Gap/blob/main/Figures/Field_experiment.png?raw=true){width=81%}
+  ![**Figura 1:** Field experiment to determine potential yield of potato in Chugay Distric, La-Libertad region, in Peru.](https://github.com/jninanya/Potato_Yield_Gap/blob/main/Figures/Field_experiment.png?raw=true){width=81%}
   <p style="margin-bottom: 10px;"></p> <!-- Add some space below the image caption -->
 </div>
 
