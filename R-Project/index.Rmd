@@ -57,14 +57,187 @@ A field experiment was performed to determine the potential yield of the 5 most 
 </div>
 
 ```{r}
-# define variables (wvars) and period
+# Read biomass (BD) and canopy cover (CD) data
 BD <- read.csv("https://github.com/jninanya/Potato_Yield_Gap/raw/refs/heads/main/Data/biomass_dataset.csv")
 CD <- read.csv("https://github.com/jninanya/Potato_Yield_Gap/raw/refs/heads/main/Data/canopy_cover_dataset.csv")
 
+#head(BD)
+#head(CD)
+
+# SUMMARY OF BIOMASS DATA
+# Constant to convert kg/plant to t/ha
+k = (1/1000)*(1/(0.3*1))*(10000/1)*0.001
+
+# Matter concentration of <organ> (MCX)
+BD$MCL <- BD$sDLM/BD$sFLM      # L = leaf
+BD$MCS <- BD$sDSM/BD$sFSM      # S = stem
+BD$MCR <- BD$sDRM/BD$sFRM      # R = root
+BD$MCT <- BD$sDTM/BD$sFTM      # T = tuber
+BD$DMC <- BD$MCT                 
+
+# Dry <organ> matter (DXM)
+BD$DLM <- BD$FLM*BD$MCL
+BD$DSM <- BD$FSM*BD$MCS
+BD$DRM <- BD$FRM*BD$MCR
+BD$DTM <- BD$FTM*BD$MCT
+
+# Fresh <organ> yield (FXY)
+BD$FLY <- BD$FLM*k
+BD$FSY <- BD$FSM*k
+BD$FRY <- BD$FRM*k
+BD$FTY <- BD$FTM*k               
+
+# Dry <organ> yield (DXY)
+BD$DLY <- BD$DLM*k
+BD$DSY <- BD$DSM*k
+BD$DRY <- BD$DRM*k
+BD$DTY <- BD$DTM*k
+
+# Total dry matter (TDM) and harvest index (HI)
+BD$TDM <- BD$DLY + BD$DSY + BD$DRY + BD$DTY
+BD$HI <- BD$DTY/BD$TDM
+
+# Summary: mean and standard error for HI
+smrBD <- BD %>%
+  group_by(CODE, EVAL, DAP) %>%
+  summarise(DLY = mean(DLY, na.rm = TRUE),
+            DSY = mean(DSY, na.rm = TRUE),
+            DRY = mean(DRY, na.rm = TRUE),
+            DTY = mean(DTY, na.rm = TRUE),
+            FTY = mean(FTY, na.rm = TRUE),
+            TDM = mean(TDM, na.rm = TRUE),
+            DMC = mean(DMC, na.rm = TRUE),
+            N = sum(!is.na(HI)),
+            nd = n(),
+            HI_mean = mean(HI, na.rm = TRUE),
+            HI_se = sd(HI, na.rm = TRUE)/sqrt(N)
+    )
+
+smrBD <- as.data.frame(smrBD)
 
 
+# SUMMARY OF CANOPY COVER DATA
+# Summary: mean and standard error for CC 
+smrCD <- CD %>%
+  group_by(CODE, DAP) %>%
+  summarise(N = sum(!is.na(CC)),
+            nd = n(),
+            CC_mean = mean(CC, na.rm = TRUE),
+            CC_se = sd(CC, na.rm = TRUE)/sqrt(N),
+            )
+
+smrCD <- as.data.frame(smrCD)
+
+```
+
+XX
+]
+
+```{r}
+## Biomass by variety
+#AMA <- smrBD[smrBD$CODE == "AMA",]
+#BRE <- smrBD[smrBD$CODE == "BRE",]
+#HUE <- smrBD[smrBD$CODE == "HUE",]
+#POD <- smrBD[smrBD$CODE == "POD",]
+#YUN <- smrBD[smrBD$CODE == "YUN",]
+#
+#par(mfrow = c(1,5),
+#    oma = c(3,3,5,1.),
+#    mar = c(0.0,0.0,0.0,0.0),
+#    las = 1, pty = "s", cex = 0.8,
+#    xaxt = "s", yaxt = "n", pch=19, lty = 2)
+#
+#with(AMA, plot(x=c(0,DAP), y=c(0,DRY), ylim=c(0,22), type="l"))
+#with(AMA, lines(x=c(0,DAP), y=c(0,DRY+DSY)))
+#with(AMA, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY)))
+#with(AMA, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY+DTY)))
+#
+#with(BRE, plot(x=c(0,DAP), y=c(0,DRY), ylim=c(0,22), type="l"))
+#with(BRE, lines(x=c(0,DAP), y=c(0,DRY+DSY)))
+#with(BRE, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY)))
+#with(BRE, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY+DTY)))
+#
+#with(HUE, plot(x=c(0,DAP), y=c(0,DRY), ylim=c(0,22), type="l"))
+#with(HUE, lines(x=c(0,DAP), y=c(0,DRY+DSY)))
+#with(HUE, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY)))
+#with(HUE, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY+DTY)))
+#
+#with(POD, plot(x=c(0,DAP), y=c(0,DRY), ylim=c(0,22), type="l"))
+#with(POD, lines(x=c(0,DAP), y=c(0,DRY+DSY)))
+#with(POD, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY)))
+#with(POD, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY+DTY)))
+#
+#with(YUN, plot(x=c(0,DAP), y=c(0,DRY), ylim=c(0,22), type="l"))
+#with(YUN, lines(x=c(0,DAP), y=c(0,DRY+DSY)))
+#with(YUN, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY)))
+#with(YUN, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY+DTY)))
+#
 
 
+smrCD <- CD %>%
+  group_by(CODE, DAP) %>%
+  summarise(N = sum(!is.na(CC)),
+            nd = n(),
+            CC_mean = mean(CC, na.rm = TRUE),
+            CC_se = sd(CC, na.rm = TRUE)/sqrt(N),
+            )
+
+
+AMA <- smrCD[smrCD$CODE=="AMA",]
+BRE <- smrCD[smrCD$CODE=="BRE",]
+HUE <- smrCD[smrCD$CODE=="HUE",]
+POD <- smrCD[smrCD$CODE=="POD",]
+YUN <- smrCD[smrCD$CODE=="YUN",]
+
+# General plot settings for CC
+par(oma    = c(4.5, 4.5, 0.5, 3),  # general margins
+    mfrow  = c(1, 5),                # number of sub-figures
+    mar    = c(0, 0, 0, 0),          # margins per sub-figure
+    family = "serif",                # text family
+    lwd    = 1.0,                    # line width
+    las    = 1,                      # style of axis labels  
+    pch    = 19,                     # plotting points
+    cex    = 0.8
+)
+
+pC <- "blue" 
+xT <- unique(CD$DAP)
+yL <- c(0,100) 
+
+
+with(AMA, plot(x=DAP, y=CC_mean, ylim=yL, col=pC, axes=FALSE, xlab="", ylab=""))
+with(AMA, lines(x=DAP, y=CC_mean, lty=2, col=pC))
+box(); axis(2); axis(4, labels=FALSE);axis(1)
+mtext(side=2, "Canopy cover (%)", line=3, las=0)
+
+with(BRE, plot(x=DAP, y=CC_mean, ylim=yL, col=pC, axes=FALSE, xlab="", ylab=""))
+with(BRE, lines(x=DAP, y=CC_mean, lty=2, col=pC))
+box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
+
+with(HUE, plot(x=DAP, y=CC_mean, ylim=yL, col=pC, axes=FALSE, xlab="", ylab=""))
+with(HUE, lines(x=DAP, y=CC_mean, lty=2, col=pC))
+box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
+mtext(side=1, "Days after planting", line=3)
+
+with(POD, plot(x=DAP, y=CC_mean, ylim=yL, col=pC, axes=FALSE, xlab="", ylab=""))
+with(POD, lines(x=DAP, y=CC_mean, lty=2, col=pC))
+box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
+
+with(YUN, plot(x=DAP, y=CC_mean, ylim=yL, col=pC, axes=FALSE, xlab="", ylab=""))
+with(YUN, lines(x=DAP, y=CC_mean, lty=2, col=pC))
+box(); axis(2,labels=FALSE); axis(4);axis(1)
+
+```
+
+
+<!-- Figure 02 -->
+<a id="Figure02"></a>
+<div style="text-align:center;">
+  ![**Figura 1:** Field experiment to determine potential yield of the most common potato varieties in Chugay Distric, La-Libertad region, Peru.](https://github.com/jninanya/Potato_Yield_Gap/blob/main/Figures/Canopy_covertime_series.png?raw=true){width=81%}
+  <p style="margin-bottom: 10px;"></p> <!-- Add some space below the image caption -->
+</div>
+
+```{r}
 
 
 wvars <- c("T2M_MAX", "T2M_MIN", "ALLSKY_SFC_SW_DWN")
