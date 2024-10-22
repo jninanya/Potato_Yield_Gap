@@ -52,12 +52,21 @@ A field experiment was performed to determine the potential yield of the 5 most 
 <!-- Figure 01 -->
 <a id="Figure01"></a>
 <div style="text-align:center;">
-  ![**Figura 1:** Field experiment to determine potential yield of potato in Chugay Distric, La-Libertad region, in Peru.](https://github.com/jninanya/Potato_Yield_Gap/blob/main/Figures/Field_experiment.png?raw=true){width=81%}
+  ![**Figura 1:** Field experiment to determine potential yield of the most common potato varieties in Chugay Distric, La-Libertad region, Peru.](https://github.com/jninanya/Potato_Yield_Gap/blob/main/Figures/Field_experiment.png?raw=true){width=81%}
   <p style="margin-bottom: 10px;"></p> <!-- Add some space below the image caption -->
 </div>
 
 ```{r}
 # define variables (wvars) and period
+BD <- read.csv("https://github.com/jninanya/Potato_Yield_Gap/raw/refs/heads/main/Data/biomass_dataset.csv")
+CD <- read.csv("https://github.com/jninanya/Potato_Yield_Gap/raw/refs/heads/main/Data/canopy_cover_dataset.csv")
+
+
+
+
+
+
+
 wvars <- c("T2M_MAX", "T2M_MIN", "ALLSKY_SFC_SW_DWN")
 period <- c("2000-01-01", "2023-12-31")
 
