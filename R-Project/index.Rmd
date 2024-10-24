@@ -47,7 +47,7 @@ source("https://raw.githubusercontent.com/jninanya/solanumR/refs/heads/main/Sola
 
 ## Field experiment and data collection
 
-A field experiment was performed to determine the potential yield of the 5 most common used potato varieties in Chugay, La Libertad, Peru. 
+A field experiment was conducted to determine the potential yield of the five most commonly grown potato varieties in Chugay, La Libertad, Peru: Amarillis, Bretaña, Huevo de Indio, Poderosa, and Yungay. These varieties were managed under optimal growing conditions to assess their yield potential. The trial took place from 24th October 2023 to 18th April 2024, providing insights into how these varieties perform in a local context under "ideal" conditions.
 
 <!-- Figure 01 -->
 <a id="Figure01"></a>
@@ -56,15 +56,18 @@ A field experiment was performed to determine the potential yield of the 5 most 
   <p style="margin-bottom: 10px;"></p> <!-- Add some space below the image caption -->
 </div>
 
-```{r}
-# Read biomass (BD) and canopy cover (CD) data
-BD <- read.csv("https://github.com/jninanya/Potato_Yield_Gap/raw/refs/heads/main/Data/biomass_dataset.csv")
-CD <- read.csv("https://github.com/jninanya/Potato_Yield_Gap/raw/refs/heads/main/Data/canopy_cover_dataset.csv")
+A total of five biomass evaluations were carried out, where the plant organs (leaf, stem, root, and tubers) were separated, every two weeks from the tuberization stage to harvest. Additionally, fifteen canopy cover evaluations were conducted from plant emergence to senescence, providing detailed data on the growth and development of the five potato varieties. The dataset related to this field experiment can be downloaded at https://doi.org/10.21223/JPA3NZ. 
 
-#head(BD)
-#head(CD)
+### Biomass data
+Lets see the harvest index, i.e., the ratio of tuber biomass over total biomass. Click on `code` to see the R chunk code for the canopy biomass data.
 
+```{r  class.source='fold-hide', results='hold', fig.width=9,fig.height=2.5}
+#---------------------------------------------------------------
 # SUMMARY OF BIOMASS DATA
+#---------------------------------------------------------------
+BD <- read.csv("https://github.com/jninanya/Potato_Yield_Gap/raw/refs/heads/main/Data/biomass_dataset.csv")
+#head(BD)
+
 # Constant to convert kg/plant to t/ha
 k = (1/1000)*(1/(0.3*1))*(10000/1)*0.001
 
@@ -112,84 +115,16 @@ smrBD <- BD %>%
             HI_mean = mean(HI, na.rm = TRUE),
             HI_se = sd(HI, na.rm = TRUE)/sqrt(N)
     )
-
 smrBD <- as.data.frame(smrBD)
 
+# Data frame for each variety
+AMA <- smrBD[smrBD$CODE=="AMA",]
+BRE <- smrBD[smrBD$CODE=="BRE",]
+HUE <- smrBD[smrBD$CODE=="HUE",]
+POD <- smrBD[smrBD$CODE=="POD",]
+YUN <- smrBD[smrBD$CODE=="YUN",]
 
-# SUMMARY OF CANOPY COVER DATA
-# Summary: mean and standard error for CC 
-smrCD <- CD %>%
-  group_by(CODE, DAP) %>%
-  summarise(N = sum(!is.na(CC)),
-            nd = n(),
-            CC_mean = mean(CC, na.rm = TRUE),
-            CC_se = sd(CC, na.rm = TRUE)/sqrt(N),
-            )
-
-smrCD <- as.data.frame(smrCD)
-
-```
-
-XX
-]
-
-```{r}
-## Biomass by variety
-#AMA <- smrBD[smrBD$CODE == "AMA",]
-#BRE <- smrBD[smrBD$CODE == "BRE",]
-#HUE <- smrBD[smrBD$CODE == "HUE",]
-#POD <- smrBD[smrBD$CODE == "POD",]
-#YUN <- smrBD[smrBD$CODE == "YUN",]
-#
-#par(mfrow = c(1,5),
-#    oma = c(3,3,5,1.),
-#    mar = c(0.0,0.0,0.0,0.0),
-#    las = 1, pty = "s", cex = 0.8,
-#    xaxt = "s", yaxt = "n", pch=19, lty = 2)
-#
-#with(AMA, plot(x=c(0,DAP), y=c(0,DRY), ylim=c(0,22), type="l"))
-#with(AMA, lines(x=c(0,DAP), y=c(0,DRY+DSY)))
-#with(AMA, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY)))
-#with(AMA, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY+DTY)))
-#
-#with(BRE, plot(x=c(0,DAP), y=c(0,DRY), ylim=c(0,22), type="l"))
-#with(BRE, lines(x=c(0,DAP), y=c(0,DRY+DSY)))
-#with(BRE, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY)))
-#with(BRE, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY+DTY)))
-#
-#with(HUE, plot(x=c(0,DAP), y=c(0,DRY), ylim=c(0,22), type="l"))
-#with(HUE, lines(x=c(0,DAP), y=c(0,DRY+DSY)))
-#with(HUE, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY)))
-#with(HUE, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY+DTY)))
-#
-#with(POD, plot(x=c(0,DAP), y=c(0,DRY), ylim=c(0,22), type="l"))
-#with(POD, lines(x=c(0,DAP), y=c(0,DRY+DSY)))
-#with(POD, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY)))
-#with(POD, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY+DTY)))
-#
-#with(YUN, plot(x=c(0,DAP), y=c(0,DRY), ylim=c(0,22), type="l"))
-#with(YUN, lines(x=c(0,DAP), y=c(0,DRY+DSY)))
-#with(YUN, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY)))
-#with(YUN, lines(x=c(0,DAP), y=c(0,DRY+DSY+DLY+DTY)))
-#
-
-
-smrCD <- CD %>%
-  group_by(CODE, DAP) %>%
-  summarise(N = sum(!is.na(CC)),
-            nd = n(),
-            CC_mean = mean(CC, na.rm = TRUE),
-            CC_se = sd(CC, na.rm = TRUE)/sqrt(N),
-            )
-
-
-AMA <- smrCD[smrCD$CODE=="AMA",]
-BRE <- smrCD[smrCD$CODE=="BRE",]
-HUE <- smrCD[smrCD$CODE=="HUE",]
-POD <- smrCD[smrCD$CODE=="POD",]
-YUN <- smrCD[smrCD$CODE=="YUN",]
-
-# General plot settings for CC
+# General plot settings
 par(oma    = c(4.5, 4.5, 0.5, 3),  # general margins
     mfrow  = c(1, 5),                # number of sub-figures
     mar    = c(0, 0, 0, 0),          # margins per sub-figure
@@ -200,42 +135,108 @@ par(oma    = c(4.5, 4.5, 0.5, 3),  # general margins
     cex    = 0.8
 )
 
-pC <- "blue" 
-xT <- unique(CD$DAP)
-yL <- c(0,100) 
+# Color and y-axis limits
+pC <- c("blue","yellow","green","cyan","red") 
+yL <- c(0,1) 
 
-
-with(AMA, plot(x=DAP, y=CC_mean, ylim=yL, col=pC, axes=FALSE, xlab="", ylab=""))
-with(AMA, lines(x=DAP, y=CC_mean, lty=2, col=pC))
+# Plot for Amarilis
+with(AMA, plot(x=DAP, y=HI_mean, ylim=yL, col=pC[1], axes=FALSE, xlab="", ylab=""))
+with(AMA, lines(x=DAP, y=HI_mean, lty=2, col=pC[1]))
 box(); axis(2); axis(4, labels=FALSE);axis(1)
-mtext(side=2, "Canopy cover (%)", line=3, las=0)
+mtext(side=2, "Harvest Index", line=3, las=0)
 
-with(BRE, plot(x=DAP, y=CC_mean, ylim=yL, col=pC, axes=FALSE, xlab="", ylab=""))
-with(BRE, lines(x=DAP, y=CC_mean, lty=2, col=pC))
+# Plot for Bretana
+with(BRE, plot(x=DAP, y=HI_mean, ylim=yL, col=pC[2], axes=FALSE, xlab="", ylab=""))
+with(BRE, lines(x=DAP, y=HI_mean, lty=2, col=pC[2]))
 box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
 
-with(HUE, plot(x=DAP, y=CC_mean, ylim=yL, col=pC, axes=FALSE, xlab="", ylab=""))
-with(HUE, lines(x=DAP, y=CC_mean, lty=2, col=pC))
+# Plot for 
+with(HUE, plot(x=DAP, y=HI_mean, ylim=yL, col=pC[3], axes=FALSE, xlab="", ylab=""))
+with(HUE, lines(x=DAP, y=HI_mean, lty=2, col=pC[3]))
 box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
 mtext(side=1, "Days after planting", line=3)
 
-with(POD, plot(x=DAP, y=CC_mean, ylim=yL, col=pC, axes=FALSE, xlab="", ylab=""))
-with(POD, lines(x=DAP, y=CC_mean, lty=2, col=pC))
+with(POD, plot(x=DAP, y=HI_mean, ylim=yL, col=pC[4], axes=FALSE, xlab="", ylab=""))
+with(POD, lines(x=DAP, y=HI_mean, lty=2, col=pC[4]))
 box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
 
-with(YUN, plot(x=DAP, y=CC_mean, ylim=yL, col=pC, axes=FALSE, xlab="", ylab=""))
-with(YUN, lines(x=DAP, y=CC_mean, lty=2, col=pC))
+with(YUN, plot(x=DAP, y=HI_mean, ylim=yL, col=pC[5], axes=FALSE, xlab="", ylab=""))
+with(YUN, lines(x=DAP, y=HI_mean, lty=2, col=pC[5]))
+box(); axis(2,labels=FALSE); axis(4);axis(1)
+
+```
+
+### Canopy cover data
+Click on `code` to see the R chunk code for the canopy cover data.
+
+```{r  class.source='fold-hide', results='hold', fig.width=9,fig.height=2.5}
+#---------------------------------------------------------------
+# SUMMARY OF CANOPY COVER DATA
+#---------------------------------------------------------------
+CD <- read.csv("https://github.com/jninanya/Potato_Yield_Gap/raw/refs/heads/main/Data/canopy_cover_dataset.csv")
+#head(CD)
+
+# Summary by variety and evaluation
+smrCD <- CD %>%
+  group_by(CODE, DAP) %>%
+  summarise(N = sum(!is.na(CC)),
+            nd = n(),
+            CC_mean = mean(CC, na.rm = TRUE),
+            CC_se = sd(CC, na.rm = TRUE)/sqrt(N),
+  )
+
+smrCD <- as.data.frame(smrCD)
+
+# Data frame for each variety
+AMA <- smrCD[smrCD$CODE=="AMA",]
+BRE <- smrCD[smrCD$CODE=="BRE",]
+HUE <- smrCD[smrCD$CODE=="HUE",]
+POD <- smrCD[smrCD$CODE=="POD",]
+YUN <- smrCD[smrCD$CODE=="YUN",]
+
+# General plot settings
+par(oma    = c(4.5, 4.5, 0.5, 3),  # general margins
+    mfrow  = c(1, 5),                # number of sub-figures
+    mar    = c(0, 0, 0, 0),          # margins per sub-figure
+    family = "serif",                # text family
+    lwd    = 1.0,                    # line width
+    las    = 1,                      # style of axis labels  
+    pch    = 19,                     # plotting points
+    cex    = 0.8
+)
+
+# Color and y-axis limits
+pC <- c("blue","yellow","green","cyan","red") 
+yL <- c(0,100) 
+
+# Plot for Amarilis
+with(AMA, plot(x=DAP, y=CC_mean, ylim=yL, col=pC[1], axes=FALSE, xlab="", ylab=""))
+with(AMA, lines(x=DAP, y=CC_mean, lty=2, col=pC[1]))
+box(); axis(2); axis(4, labels=FALSE);axis(1)
+mtext(side=2, "Canopy cover (%)", line=3, las=0)
+
+# Plot for Bretana
+with(BRE, plot(x=DAP, y=CC_mean, ylim=yL, col=pC[2], axes=FALSE, xlab="", ylab=""))
+with(BRE, lines(x=DAP, y=CC_mean, lty=2, col=pC[2]))
+box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
+
+# Plot for 
+with(HUE, plot(x=DAP, y=CC_mean, ylim=yL, col=pC[3], axes=FALSE, xlab="", ylab=""))
+with(HUE, lines(x=DAP, y=CC_mean, lty=2, col=pC[3]))
+box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
+mtext(side=1, "Days after planting", line=3)
+
+with(POD, plot(x=DAP, y=CC_mean, ylim=yL, col=pC[4], axes=FALSE, xlab="", ylab=""))
+with(POD, lines(x=DAP, y=CC_mean, lty=2, col=pC[4]))
+box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
+
+with(YUN, plot(x=DAP, y=CC_mean, ylim=yL, col=pC[5], axes=FALSE, xlab="", ylab=""))
+with(YUN, lines(x=DAP, y=CC_mean, lty=2, col=pC[5]))
 box(); axis(2,labels=FALSE); axis(4);axis(1)
 
 ```
 
 
-<!-- Figure 02 -->
-<a id="Figure02"></a>
-<div style="text-align:center;">
-  ![**Figura 1:** Field experiment to determine potential yield of the most common potato varieties in Chugay Distric, La-Libertad region, Peru.](https://github.com/jninanya/Potato_Yield_Gap/blob/main/Figures/Canopy_covertime_series.png?raw=true){width=81%}
-  <p style="margin-bottom: 10px;"></p> <!-- Add some space below the image caption -->
-</div>
 
 ```{r}
 
