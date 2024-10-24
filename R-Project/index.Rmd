@@ -150,16 +150,18 @@ with(BRE, plot(x=DAP, y=HI_mean, ylim=yL, col=pC[2], axes=FALSE, xlab="", ylab="
 with(BRE, lines(x=DAP, y=HI_mean, lty=2, col=pC[2]))
 box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
 
-# Plot for 
+# Plot for Huevo de Indio
 with(HUE, plot(x=DAP, y=HI_mean, ylim=yL, col=pC[3], axes=FALSE, xlab="", ylab=""))
 with(HUE, lines(x=DAP, y=HI_mean, lty=2, col=pC[3]))
 box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
 mtext(side=1, "Days after planting", line=3)
 
+# Plot for Poderosa
 with(POD, plot(x=DAP, y=HI_mean, ylim=yL, col=pC[4], axes=FALSE, xlab="", ylab=""))
 with(POD, lines(x=DAP, y=HI_mean, lty=2, col=pC[4]))
 box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
 
+# Plot for Yungay
 with(YUN, plot(x=DAP, y=HI_mean, ylim=yL, col=pC[5], axes=FALSE, xlab="", ylab=""))
 with(YUN, lines(x=DAP, y=HI_mean, lty=2, col=pC[5]))
 box(); axis(2,labels=FALSE); axis(4);axis(1)
@@ -220,16 +222,18 @@ with(BRE, plot(x=DAP, y=CC_mean, ylim=yL, col=pC[2], axes=FALSE, xlab="", ylab="
 with(BRE, lines(x=DAP, y=CC_mean, lty=2, col=pC[2]))
 box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
 
-# Plot for 
+# Plot for Huevo de Indio
 with(HUE, plot(x=DAP, y=CC_mean, ylim=yL, col=pC[3], axes=FALSE, xlab="", ylab=""))
 with(HUE, lines(x=DAP, y=CC_mean, lty=2, col=pC[3]))
 box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
 mtext(side=1, "Days after planting", line=3)
 
+# Plot for Poderosa
 with(POD, plot(x=DAP, y=CC_mean, ylim=yL, col=pC[4], axes=FALSE, xlab="", ylab=""))
 with(POD, lines(x=DAP, y=CC_mean, lty=2, col=pC[4]))
 box(); axis(2,labels=FALSE); axis(4, labels=FALSE);axis(1)
 
+# Plot for Yungay
 with(YUN, plot(x=DAP, y=CC_mean, ylim=yL, col=pC[5], axes=FALSE, xlab="", ylab=""))
 with(YUN, lines(x=DAP, y=CC_mean, lty=2, col=pC[5]))
 box(); axis(2,labels=FALSE); axis(4);axis(1)
@@ -237,141 +241,12 @@ box(); axis(2,labels=FALSE); axis(4);axis(1)
 ```
 
 
-
-```{r}
-
-
-wvars <- c("T2M_MAX", "T2M_MIN", "ALLSKY_SFC_SW_DWN")
-period <- c("2000-01-01", "2023-12-31")
-
-# coordinates (lon, lat) of the Fultola location
-FUL <- c(89.5262, 22.7088) 
-
-# get daily data from NASA POWER 
-wdata <- get_power(
-  community = "ag",
-  lonlat = FUL,
-  pars = wvars,
-  dates = period,
-  temporal_api = "daily"
-)
-
-# change column names and photoperiod computation
-colnames(wdata)[8:10] <- c("TMAX", "TMIN", "SRAD")
-wdata$DATE <- wdata$YYYYMMDD
-wdata$SUNSH <- photoperiod(wdata$DOY, wdata$LAT)
-
-# CLIMATIC CONDITIONS FOR THE 2000-2020 PERIOD
-# average wdata by DOY
-smr_ave <- wdata[wdata$YEAR >= 2000 & wdata$YEAR <= 2020, ] %>%
-  group_by(DOY) %>%
-  summarise_at(c("TMAX", "TMIN", "SRAD"), mean, na.rm = TRUE)
-
-# quantile 10
-smr_q10 <- wdata[wdata$YEAR >= 2000 & wdata$YEAR <= 2020, ] %>%
-  group_by(DOY) %>%
-  summarise_at(c("TMAX", "TMIN", "SRAD"), quantile, probs = 0.10, na.rm = TRUE)
-
-# quantile 90
-smr_q90 <- wdata[wdata$YEAR >= 2000 & wdata$YEAR <= 2020, ] %>%
-  group_by(DOY) %>%
-  summarise_at(c("TMAX", "TMIN", "SRAD"), quantile, probs = 0.90, na.rm = TRUE)
-
-# select DOY from 1 to 365 (DOY = 366 is not considered)
-smr_ave <- smr_ave[1:365,]
-smr_q10 <- smr_q10[1:365,]
-smr_q90 <- smr_q90[1:365,]
-
-```
-
-Climatic condition show XX. Click on `code` to see the R chunk code for the plot below. 
-
-```{r class.source='fold-hide', results='hold'}
-# general plot settings
-par(oma    = c(2.5, 3.5, 0.5, 3.5),  # general margins
-    mfrow  = c(1, 2),                # number of sub-figures
-    mar    = c(0, 0.25, 0, 0.25),    # margins per sub-figure
-    ps     = 10,                     # text font size
-    family = "serif",                # text family
-    lwd    = 1.0,                    # line width
-    las    = 1,                      # style of axis labels  
-    pch    = 20                      # plotting points
-)
-
-# x-axis tick marks and labels
-x <- smr_ave$DOY
-xtick <- c(15, 75, 136, 197, 259, 320)
-xlabs <- c("JAN", "MAR", "MAY", "JUL", "SEP", "NOV")
-
-# PLOT MINIMUM AND MAXIMUM TEMPERATURES
-# create an empty plot
-plot(x = 0, y = 0, xlim = c(1, 365), ylim = c(5, 45), xlab = "", ylab = "", 
-     type = "l", axes = FALSE)
-box()
-axis(1, at = xtick,  labels = xlabs)
-axis(2, las = 1)
-mtext(side = 2, text = quote("Temperature (°C)"), 
-      las = 0, line = 2.4, cex = 1.5)
-
-# add minimum temperature to empty plot
-polygon(c(x, rev(x)), c(smr_q90$TMIN, rev(smr_q10$TMIN)), col = "#ffb2b2")
-lines(x, smr_ave$TMIN, col = "#FF0000", lwd = 2)
-lines(x, smr_q10$TMIN, col = "#ffb2b2")
-lines(x, smr_q90$TMIN, col = "#ffb2b2")
-
-# add maximum temperature to empty plot
-polygon(c(x, rev(x)), c(smr_q90$TMAX, rev(smr_q10$TMAX)), col = "#b2b2ff")
-lines(x, smr_ave$TMAX, col = "#0000FF", lwd = 2)
-lines(x, smr_q10$TMAX, col = "#b2b2ff")
-lines(x, smr_q90$TMAX, col = "#b2b2ff")
-
-# add legend
-legend(x = "topright", legend = c("TMAX", "TMIN"), 
-       col = c("#0000FF", "#FF0000"), lty = 1, cex = 0.8, lwd = 1.5)
-
-# PLOT SOLAR RADIATION
-# create an empty plot
-plot(x = 0, y = 0, type = "l", xlim = c(1, 365), ylim = c(0, 30), 
-     xlab = "", ylab = "", axes = FALSE)
-box()
-axis(1, at = xtick, labels = xlabs)
-axis(4, las = 1)
-mtext(side = 4, text = quote("Radiation (MJ m"^{-2}*")"), 
-      las = 0, line = 2.4, cex = 1.5)
-
-# add solar radiation data to empty plot
-polygon(c(x, rev(x)), c(smr_q90$SRAD, rev(smr_q10$SRAD)), col = "#e8cfb4")
-lines(x, smr_ave$SRAD, col = "#B45F06", lwd = 2)
-lines(x, smr_q10$SRAD, col = "#e8cfb4")
-lines(x, smr_q90$SRAD, col = "#e8cfb4")
-
-# add legend
-legend(x = "topright", legend = "SRAD", col = "#B45F06", 
-       lty = 1, cex = 0.8, lwd = 1.5)
-
-```
-
 ## Biass correction of weather data
+A bias correction of NASAPower weather data was performed using information from an in situ weather station. The correction methods applied included linear regression, quantile matching, and spline matching. Although the in situ weather station provided data for only one year, a 10-year weather dataset was generated using the bias-corrected NASAPower data (to avoid seasonality error), ensuring it accurately reflects local conditions during the experiment.
 
 ```{r}
 # data for model calibration
-climate <- apply(smr_ave, 2, rep, 2)
-climate <- as.data.frame(climate)
 
-year1 = fromDoy(climate$DOY[1:365], 2021)
-year2 = fromDoy(climate$DOY[366:730], 2022)
-
-climate$day <- NULL
-climate$month <- NULL
-climate$year <- NULL
-climate$day[1:365] <- day(year1)
-climate$day[366:730] <- day(year2)
-climate$month[1:365] <- month(year1)
-climate$month[366:730] <- month(year2)
-climate$year[1:365] <- year(year1)
-climate$year[366:730] <- year(year2)
-
-climate <- climate[,c("day", "month", "year", "DOY", "TMAX", "TMIN", "SRAD")]
 
 ```
 
@@ -424,105 +299,105 @@ CropParamsList$BariAlu78
 #-------------------------------------------------------------------------------
 # 5. Historical yield at 80 and 90 DAP 
 #-------------------------------------------------------------------------------
-# consider 20 years
-nyears <- 2000:2019
-
-swgDates <- c("2021-12-20", "2021-12-12", "2021-12-20", "2021-12-12",
-              "2022-12-14", "2022-12-31", "2022-12-14", "2022-12-31")
-hvtDates <- c("2022-03-27", "2022-03-27", "2022-03-27", "2022-03-27",
-              "2023-03-16", "2023-03-16", "2023-03-16", "2023-03-16")
-hvtDAP <- c(97, 105, 97, 105, 92, 75, 92, 75)
-
-CP <- CropParamsList[c("BariAlu72", "BariAlu78")]
-CParams <- list(CP[[1]], CP[[1]], CP[[2]], CP[[2]], 
-                CP[[1]], CP[[1]], CP[[2]], CP[[2]])  
-emgDays <- c(12, 12, 14, 14, 12, 12, 14, 14)
-
-wdata <- as.data.frame(wdata)
-
-o1 <- as.data.frame(matrix(nrow = length(nyears), ncol = 8))
-o2 <- as.data.frame(matrix(nrow = length(nyears), ncol = 8))
-o3 <- as.data.frame(matrix(nrow = length(nyears), ncol = 8))
-
-cname <-   c("ZTV1S1", "CTV1S1", "ZTV2S1", "CTV2S1",
-             "ZTV1S2", "CTV1S2", "ZTV2S2", "CTV2S2")
-
-colnames(o1) <- colnames(o2) <- colnames(o3) <- cname
-rownames(o1) <- rownames(o2) <- rownames(o3) <- nyears
-
-for(i in 1:length(nyears)){
-  
-  for(j in 1:8){
-    
-    swg <- swgDates[j]
-    hvt <- hvtDates[j]
-    weather <- wdata
-    sowing <- paste(nyears[i], month(swg), day(swg), sep = "-")
-    #harvest <- paste(nyears[i]+1, month(hvt), day(hvt), sep = "-")
-    harvest <- as.Date(sowing) + hvtDAP[j]
-    EDay <- emgDays[j]
-    plantDensity = 12.5
-    CropParams <- CParams[[j]]
-    
-    res <- SolanumModel(weather, sowing, harvest, EDay,plantDensity, CropParams)
-    nn <- nrow(res)
-    o1[i, j] <- as.character(res$date[1])
-    o2[i, j] <- round(res$fty[nn], 1)
-    o3[i, j] <- round(res$tdm[nn], 1)
-    
-  }
-}
-
-c1 <- list(date = o1, fty = o2, tdm = o3)
-
-
-#-------------------------------------------------------------------------------
-# 9. Final plot
-#-------------------------------------------------------------------------------
-# general plot settings
-par(oma    = c(3.0, 4.2, 2.0, 4.2),  # general margins
-    mfrow  = c(1, 2),                # number of sub-figures
-    mar    = c(0.8, 0.1, 0.1, 0.1),  # margins per sub-figure
-    ps     = 10,                     # text font size
-    family = "serif",                # text family
-    lwd    = 1.0,                    # line width
-    las    = 1,                      # style of axis labels  
-    pch    = 20                      # plotting points
-)
-
-xT <- c(10, 25, 40, 55, 71, 86)
-xL <- c("10-Nov", "25-Nov", "10-Dec", "25-Dec", "10-Jan", "25-Jan")
-
-# sub-figure A
-b1 = boxplot(c1$fty[, 1:2], xlim = c(0.5,4.7), ylim = c(28, 47), 
-             at = 1:2, axes = FALSE, boxwex = 0.6)
-b2 = boxplot(c1$fty[, 3:4], add = TRUE, at = c(3.2, 4.2), 
-             axes = FALSE, boxwex = 0.6)
-box()
-axis(side = 2)
-mtext(side = 2, text = bquote("YP (t ha"^{-1}*")"), las = 0, 
-      line = 2.4, cex = 1.2)
-text(x = 0.5+0.025*(4.7-0.5), y = 47-0.050*(47-28), 
-     labels = bquote(bold("A)")))
-
-axis(side = 1, at = c(1,2,3.2,4.2), 
-     labels = c("ZT_BA72", "CT_BA72", "ZT_BA78", "CT_BA78"), cex.axis = 1.2)
-
-
-# sub-figure B
-b1 = boxplot(c1$fty[, 5:6], xlim = c(0.5,4.7), ylim = c(28, 47), 
-             at = 1:2, axes = FALSE, boxwex = 0.6)
-b2 = boxplot(c1$fty[, 7:8], add = TRUE, at = c(3.2, 4.2), 
-             axes = FALSE, boxwex = 0.6)
-box()
-axis(side = 4) 
-mtext(side = 4, text = bquote("YP (t ha"^{-1}*")"), las = 0, 
-      line = 3.0, cex = 1.2)
-text(x = 0.5+0.025*(4.7-0.5), y = 47-0.050*(47-28), 
-     labels = bquote(bold("B)")))
-
-axis(side = 1, at = c(1,2,3.2,4.2), 
-     labels = c("ZT_BA72", "CT_BA72", "ZT_BA78", "CT_BA78"), cex.axis = 1.2)
+## consider 20 years
+#nyears <- 2000:2019
+#
+#swgDates <- c("2021-12-20", "2021-12-12", #"2021-12-20", "2021-12-12",
+#              "2022-12-14", "2022-12-31", #"2022-12-14", "2022-12-31")
+#hvtDates <- c("2022-03-27", "2022-03-27", #"2022-03-27", "2022-03-27",
+#              "2023-03-16", "2023-03-16", #"2023-03-16", "2023-03-16")
+#hvtDAP <- c(97, 105, 97, 105, 92, 75, 92, 75)
+#
+#CP <- CropParamsList[c("BariAlu72", "BariAlu78")]
+#CParams <- list(CP[[1]], CP[[1]], CP[[2]], CP[[2]], 
+#                CP[[1]], CP[[1]], CP[[2]], CP[[2]])  
+#emgDays <- c(12, 12, 14, 14, 12, 12, 14, 14)
+#
+#wdata <- as.data.frame(wdata)
+#
+#o1 <- as.data.frame(matrix(nrow = length(nyears), ncol #= 8))
+#o2 <- as.data.frame(matrix(nrow = length(nyears), ncol #= 8))
+#o3 <- as.data.frame(matrix(nrow = length(nyears), ncol #= 8))
+#
+#cname <-   c("ZTV1S1", "CTV1S1", "ZTV2S1", "CTV2S1",
+#             "ZTV1S2", "CTV1S2", "ZTV2S2", "CTV2S2")
+#
+#colnames(o1) <- colnames(o2) <- colnames(o3) <- cname
+#rownames(o1) <- rownames(o2) <- rownames(o3) <- nyears
+#
+#for(i in 1:length(nyears)){
+#  
+#  for(j in 1:8){
+#    
+#    swg <- swgDates[j]
+#    hvt <- hvtDates[j]
+#    weather <- wdata
+#    sowing <- paste(nyears[i], month(swg), day(swg), #sep = "-")
+#    #harvest <- paste(nyears[i]+1, month(hvt), #day(hvt), sep = "-")
+#    harvest <- as.Date(sowing) + hvtDAP[j]
+#    EDay <- emgDays[j]
+#    plantDensity = 12.5
+#    CropParams <- CParams[[j]]
+#    
+#    res <- SolanumModel(weather, sowing, harvest, #EDay,plantDensity, CropParams)
+#    nn <- nrow(res)
+#    o1[i, j] <- as.character(res$date[1])
+#    o2[i, j] <- round(res$fty[nn], 1)
+#    o3[i, j] <- round(res$tdm[nn], 1)
+#    
+#  }
+#}
+#
+#c1 <- list(date = o1, fty = o2, tdm = o3)
+#
+#
+##-----------------------------------------------------#--------------------------
+## 9. Final plot
+##-----------------------------------------------------#--------------------------
+## general plot settings
+#par(oma    = c(3.0, 4.2, 2.0, 4.2),  # general margins
+#    mfrow  = c(1, 2),                # number of #sub-figures
+#    mar    = c(0.8, 0.1, 0.1, 0.1),  # margins per #sub-figure
+#    ps     = 10,                     # text font size
+#    family = "serif",                # text family
+#    lwd    = 1.0,                    # line width
+#    las    = 1,                      # style of axis #labels  
+#    pch    = 20                      # plotting points
+#)
+#
+#xT <- c(10, 25, 40, 55, 71, 86)
+#xL <- c("10-Nov", "25-Nov", "10-Dec", "25-Dec", #"10-Jan", "25-Jan")
+#
+## sub-figure A
+#b1 = boxplot(c1$fty[, 1:2], xlim = c(0.5,4.7), ylim = #c(28, 47), 
+#             at = 1:2, axes = FALSE, boxwex = 0.6)
+#b2 = boxplot(c1$fty[, 3:4], add = TRUE, at = c(3.2, #4.2), 
+#             axes = FALSE, boxwex = 0.6)
+#box()
+#axis(side = 2)
+#mtext(side = 2, text = bquote("YP (t ha"^{-1}*")"), #las = 0, 
+#      line = 2.4, cex = 1.2)
+#text(x = 0.5+0.025*(4.7-0.5), y = 47-0.050*(47-28), 
+#     labels = bquote(bold("A)")))
+#
+#axis(side = 1, at = c(1,2,3.2,4.2), 
+#     labels = c("ZT_BA72", "CT_BA72", "ZT_BA78", #"CT_BA78"), cex.axis = 1.2)
+#
+#
+## sub-figure B
+#b1 = boxplot(c1$fty[, 5:6], xlim = c(0.5,4.7), ylim = #c(28, 47), 
+#             at = 1:2, axes = FALSE, boxwex = 0.6)
+#b2 = boxplot(c1$fty[, 7:8], add = TRUE, at = c(3.2, #4.2), 
+#             axes = FALSE, boxwex = 0.6)
+#box()
+#axis(side = 4) 
+#mtext(side = 4, text = bquote("YP (t ha"^{-1}*")"), #las = 0, 
+#      line = 3.0, cex = 1.2)
+#text(x = 0.5+0.025*(4.7-0.5), y = 47-0.050*(47-28), 
+#     labels = bquote(bold("B)")))
+#
+#axis(side = 1, at = c(1,2,3.2,4.2), 
+#     labels = c("ZT_BA72", "CT_BA72", "ZT_BA78", #"CT_BA78"), cex.axis = 1.2)
 
 
 
@@ -539,129 +414,129 @@ axis(side = 1, at = c(1,2,3.2,4.2),
 ```{r}
 
 ################################################################################
-# 3. Thermal time computing
-################################################################################
-year0 = 2000
-year1 = 2022
-n <- as.Date("2023-01-31")-as.Date("2022-11-01")+1
-m <- year1-year0+1
-
-#wdata <- wdata[wdata$YEAR>=year0 & wdata$YEAR<=year1,]
-
-out0 <- as.data.frame(matrix(nrow = n, ncol = m))
-out1 <- as.data.frame(matrix(nrow = n, ncol = m))
-out2 <- as.data.frame(matrix(nrow = n, ncol = m))
-yy = seq(year0, year1, by = 1)
-
-# load extra functions
-
-
-
-
-weather <- wdata
-
-#for(jj in 1:m){
-#  
-#  date0 = as.Date(paste0(yy[jj], "-11-01"))-1
-#  
-#  for(ii in 1:n){
-#  
-#    
-#    sDate = as.Date(date0 + ii)
-#    sDate.name = paste(month(sDate), day(sDate), sep = "-")
-#    out0[ii, jj] = as.character(sDate)
-#    
-#    sowing = sDate
-#    harvest = sowing + 90
-#    ndays = as.numeric(harvest-sowing)+1
-#    
-### variety Bari Alu 72    
-#    source("https://raw.githubusercontent.com/jninanya/Ramirez-et-a#l-2024/main/solanumR/BARI-Alu-72.R")
-#    source("https://raw.githubusercontent.com/jninanya/Ramirez-et-a#l-2024/main/solanumR/Module_PotentialGrowth_V2.0.R")
-#    
-#    out1[ii, jj] = ifelse(df$fty[ndays]>20, df$fty[ndays], NA)
-#    
-### variety Bari Alu 78
-#    source("https://raw.githubusercontent.com/jninanya/Ramirez-et-a#l-2024/main/solanumR/BARI-Alu-78.R")
-#    source("https://raw.githubusercontent.com/jninanya/Ramirez-et-a#l-2024/main/solanumR/Module_PotentialGrowth_V2.0.R")
-#    
-#    out2[ii, jj] = ifelse(df$fty[ndays]>20, df$fty[ndays], NA)
-#    
-#    rownames(out0)[ii] = sDate.name
-#    rownames(out1)[ii] = sDate.name
-#    rownames(out2)[ii] = sDate.name
-#  }
-#  
-#  colnames(out0)[jj] = yy[jj]
-#  colnames(out1)[jj] = yy[jj]
-#  colnames(out2)[jj] = yy[jj]
-#  
-#}
-
-#d1 <- out1
-#d2 <- out2
+## 3. Thermal time computing
+##################################################################################
+#year0 = 2000
+#year1 = 2022
+#n <- as.Date("2023-01-31")-as.Date("2022-11-01")+1
+#m <- year1-year0+1
 #
-#boxplot(t(d1), col = "green", outline = FALSE, las=1,
-#        ylab = "potential yield (t/ha)")
+##wdata <- wdata[wdata$YEAR>=year0 & #wdata$YEAR<=year1,]
 #
-#boxplot(t(d2), col = "red", outline = FALSE, las=1,
-#        ylab = "potential yield (t/ha)")
+#out0 <- as.data.frame(matrix(nrow = n, ncol = m))
+#out1 <- as.data.frame(matrix(nrow = n, ncol = m))
+#out2 <- as.data.frame(matrix(nrow = n, ncol = m))
+#yy = seq(year0, year1, by = 1)
+#
+## load extra functions
 #
 #
-### plot fty by planting date
-#x <- 1:92
-#fty_mean <- apply(out1, 1, mean, na.rm = TRUE)
-#fty_q10 <- apply(out1, 1, quantile, probs = 0.10, na.rm = TRUE)
-#fty_q90 <- apply(out1, 1, quantile, probs = 0.90, na.rm = TRUE)
 #
 #
-##--------------------------------------------------
-##--------------------------------------------------
-#### General figure settings
-#par(oma = c(4, 1, 0.5, 0.5),  # general margins
-#    mfrow = c(2, 1),              # number of sub-figures
-#    mar = c(0,3,0,0),           # margins per sub-figure
-##    ps = 10,                      # text font size
-#    family = "serif"              # text family
-##    lwd = 0.5,                    # line width
-##    las = 1,                      # style of axis labels
-##    pch = 20                      # plotting points
-#)
+#weather <- wdata
 #
-#x=1:90
-#y1=d1$`2021`[1:90]
-#y2=d2$`2021`[1:90]
-#plot(x, y1, type = "l", xlim = c(1,92), ylim = c(23,57), 
-#     xlab = "", ylab = "potential yield (t/ha)", axes = FALSE, 
-#     lwd = 2)
-#box()
-#lines(x, y2, lwd = 2, col = "gray50")
+##for(jj in 1:m){
+##  
+##  date0 = as.Date(paste0(yy[jj], "-11-01"))-1
+##  
+##  for(ii in 1:n){
+##  
+##    
+##    sDate = as.Date(date0 + ii)
+##    sDate.name = paste(month(sDate), day(sDate), sep #= "-")
+##    out0[ii, jj] = as.character(sDate)
+##    
+##    sowing = sDate
+##    harvest = sowing + 90
+##    ndays = as.numeric(harvest-sowing)+1
+##    
+#### variety Bari Alu 72    
+##    source("https://raw.githubusercontent.com/jninany#a/Ramirez-et-a#l-2024/main/solanumR/BARI-Alu-72.R")
+##    source("https://raw.githubusercontent.com/jninany#a/Ramirez-et-a#l-2024/main/solanumR/Module_PotentialGr#owth_V2.0.R")
+##    
+##    out1[ii, jj] = ifelse(df$fty[ndays]>20, #df$fty[ndays], NA)
+##    
+#### variety Bari Alu 78
+##    source("https://raw.githubusercontent.com/jninany#a/Ramirez-et-a#l-2024/main/solanumR/BARI-Alu-78.R")
+##    source("https://raw.githubusercontent.com/jninany#a/Ramirez-et-a#l-2024/main/solanumR/Module_PotentialGr#owth_V2.0.R")
+##    
+##    out2[ii, jj] = ifelse(df$fty[ndays]>20, #df$fty[ndays], NA)
+##    
+##    rownames(out0)[ii] = sDate.name
+##    rownames(out1)[ii] = sDate.name
+##    rownames(out2)[ii] = sDate.name
+##  }
+##  
+##  colnames(out0)[jj] = yy[jj]
+##  colnames(out1)[jj] = yy[jj]
+##  colnames(out2)[jj] = yy[jj]
+##  
+##}
 #
+##d1 <- out1
+##d2 <- out2
+##
+##boxplot(t(d1), col = "green", outline = FALSE, las=1,
+##        ylab = "potential yield (t/ha)")
+##
+##boxplot(t(d2), col = "red", outline = FALSE, las=1,
+##        ylab = "potential yield (t/ha)")
+##
+##
+#### plot fty by planting date
+##x <- 1:92
+##fty_mean <- apply(out1, 1, mean, na.rm = TRUE)
+##fty_q10 <- apply(out1, 1, quantile, probs = 0.10, #na.rm = TRUE)
+##fty_q90 <- apply(out1, 1, quantile, probs = 0.90, #na.rm = TRUE)
+##
+##
+###--------------------------------------------------
+###--------------------------------------------------
+##### General figure settings
+##par(oma = c(4, 1, 0.5, 0.5),  # general margins
+##    mfrow = c(2, 1),              # number of #sub-figures
+##    mar = c(0,3,0,0),           # margins per #sub-figure
+###    ps = 10,                      # text font size
+##    family = "serif"              # text family
+###    lwd = 0.5,                    # line width
+###    las = 1,                      # style of axis #labels
+###    pch = 20                      # plotting points
+##)
+##
+##x=1:90
+##y1=d1$`2021`[1:90]
+##y2=d2$`2021`[1:90]
+##plot(x, y1, type = "l", xlim = c(1,92), ylim = #c(23,57), 
+##     xlab = "", ylab = "potential yield (t/ha)", axes #= FALSE, 
+##     lwd = 2)
+##box()
+##lines(x, y2, lwd = 2, col = "gray50")
+##
+###axis(1, at = c(5,15,25,35,45,55,66,76,86), las = 2,
+###     labels = #c("5-nov","15-nov","25-nov","5-dec","15-dec","25-dec#"#,"5-jan","15-jan","25-jan"))
+###axis(1, las = 1, at = seq(5, 90, by=10))
+##axis(2, las = 1, at=seq(25,55,by=5))
+##abline(v=50, lty = 2, col = "blue")
+##abline(v=74, lty = 2, col = "blue")
+##
+##text(47, 55.5, "ZT", col = "blue")
+##text(71, 55.5, "CT", col = "blue")
+##
+##text(0, 55.5, expression(bold("A")))
+##mtext(side=2, text=bquote("yield (t ha"^{"-1"}*")"), #cex = 1.5, #line = 2.4)
+##
+#####
+##x=1:85
+##y1=d1$`2022`[1:85]
+##y2=d2$`2022`[1:85]
+##plot(x, y1, type = "l", xlim = c(1,92), ylim = #c(23,52), 
+##     xlab = "", ylab = "potential yield (t/ha)", axes #= FALSE, 
+##     lwd = 2)
+##box()
+##lines(x, y2, lwd = 2, col = "gray50")
+##
 ##axis(1, at = c(5,15,25,35,45,55,66,76,86), las = 2,
-##     labels = c("5-nov","15-nov","25-nov","5-dec","15-dec","25-dec#","5-jan","15-jan","25-jan"))
-##axis(1, las = 1, at = seq(5, 90, by=10))
-#axis(2, las = 1, at=seq(25,55,by=5))
-#abline(v=50, lty = 2, col = "blue")
-#abline(v=74, lty = 2, col = "blue")
-#
-#text(47, 55.5, "ZT", col = "blue")
-#text(71, 55.5, "CT", col = "blue")
-#
-#text(0, 55.5, expression(bold("A")))
-#mtext(side=2, text=bquote("yield (t ha"^{"-1"}*")"), cex = 1.5, #line = 2.4)
-#
-####
-#x=1:85
-#y1=d1$`2022`[1:85]
-#y2=d2$`2022`[1:85]
-#plot(x, y1, type = "l", xlim = c(1,92), ylim = c(23,52), 
-#     xlab = "", ylab = "potential yield (t/ha)", axes = FALSE, 
-#     lwd = 2)
-#box()
-#lines(x, y2, lwd = 2, col = "gray50")
-#
-#axis(1, at = c(5,15,25,35,45,55,66,76,86), las = 2,
-#     labels = c("05-nov","15-nov","25-nov","05-dec","15-dec","25-de#c","05-jan","15-jan","25-jan"))
+##     labels = #c("05-nov","15-nov","25-nov","05-dec","15-dec","25-de#c","05-jan","15-jan","25-jan"))
 ##axis(1, las = 1, at = seq(5, 90, by=10))
 #axis(2, las = 1, at=seq(25,50,by=5))
 #abline(v=44, lty = 2, col = "blue")
