@@ -1098,166 +1098,74 @@ arrows(x0 = bp, y0 = means - stderr, x1 = bp, y1 = means + stderr,
 ```
 
 
-
-## Survey data collection
-
-```{r}
-
-################################################################################
-## 3. Thermal time computing
-##################################################################################
-#year0 = 2000
-#year1 = 2022
-#n <- as.Date("2023-01-31")-as.Date("2022-11-01")+1
-#m <- year1-year0+1
-#
-##wdata <- wdata[wdata$YEAR>=year0 & #wdata$YEAR<=year1,]
-#
-#out0 <- as.data.frame(matrix(nrow = n, ncol = m))
-#out1 <- as.data.frame(matrix(nrow = n, ncol = m))
-#out2 <- as.data.frame(matrix(nrow = n, ncol = m))
-#yy = seq(year0, year1, by = 1)
-#
-## load extra functions
-#
-#
-#
-#
-#weather <- wdata
-#
-##for(jj in 1:m){
-##  
-##  date0 = as.Date(paste0(yy[jj], "-11-01"))-1
-##  
-##  for(ii in 1:n){
-##  
-##    
-##    sDate = as.Date(date0 + ii)
-##    sDate.name = paste(month(sDate), day(sDate), sep #= "-")
-##    out0[ii, jj] = as.character(sDate)
-##    
-##    sowing = sDate
-##    harvest = sowing + 90
-##    ndays = as.numeric(harvest-sowing)+1
-##    
-#### variety Bari Alu 72    
-##    source("https://raw.githubusercontent.com/jninany#a/Ramirez-et-a#l-2024/main/solanumR/BARI-Alu-72.R")
-##    source("https://raw.githubusercontent.com/jninany#a/Ramirez-et-a#l-2024/main/solanumR/Module_PotentialGr#owth_V2.0.R")
-##    
-##    out1[ii, jj] = ifelse(df$fty[ndays]>20, #df$fty[ndays], NA)
-##    
-#### variety Bari Alu 78
-##    source("https://raw.githubusercontent.com/jninany#a/Ramirez-et-a#l-2024/main/solanumR/BARI-Alu-78.R")
-##    source("https://raw.githubusercontent.com/jninany#a/Ramirez-et-a#l-2024/main/solanumR/Module_PotentialGr#owth_V2.0.R")
-##    
-##    out2[ii, jj] = ifelse(df$fty[ndays]>20, #df$fty[ndays], NA)
-##    
-##    rownames(out0)[ii] = sDate.name
-##    rownames(out1)[ii] = sDate.name
-##    rownames(out2)[ii] = sDate.name
-##  }
-##  
-##  colnames(out0)[jj] = yy[jj]
-##  colnames(out1)[jj] = yy[jj]
-##  colnames(out2)[jj] = yy[jj]
-##  
-##}
-#
-##d1 <- out1
-##d2 <- out2
-##
-##boxplot(t(d1), col = "green", outline = FALSE, las=1,
-##        ylab = "potential yield (t/ha)")
-##
-##boxplot(t(d2), col = "red", outline = FALSE, las=1,
-##        ylab = "potential yield (t/ha)")
-##
-##
-#### plot fty by planting date
-##x <- 1:92
-##fty_mean <- apply(out1, 1, mean, na.rm = TRUE)
-##fty_q10 <- apply(out1, 1, quantile, probs = 0.10, #na.rm = TRUE)
-##fty_q90 <- apply(out1, 1, quantile, probs = 0.90, #na.rm = TRUE)
-##
-##
-###--------------------------------------------------
-###--------------------------------------------------
-##### General figure settings
-##par(oma = c(4, 1, 0.5, 0.5),  # general margins
-##    mfrow = c(2, 1),              # number of #sub-figures
-##    mar = c(0,3,0,0),           # margins per #sub-figure
-###    ps = 10,                      # text font size
-##    family = "serif"              # text family
-###    lwd = 0.5,                    # line width
-###    las = 1,                      # style of axis #labels
-###    pch = 20                      # plotting points
-##)
-##
-##x=1:90
-##y1=d1$`2021`[1:90]
-##y2=d2$`2021`[1:90]
-##plot(x, y1, type = "l", xlim = c(1,92), ylim = #c(23,57), 
-##     xlab = "", ylab = "potential yield (t/ha)", axes #= FALSE, 
-##     lwd = 2)
-##box()
-##lines(x, y2, lwd = 2, col = "gray50")
-##
-###axis(1, at = c(5,15,25,35,45,55,66,76,86), las = 2,
-###     labels = #c("5-nov","15-nov","25-nov","5-dec","15-dec","25-dec#"#,"5-jan","15-jan","25-jan"))
-###axis(1, las = 1, at = seq(5, 90, by=10))
-##axis(2, las = 1, at=seq(25,55,by=5))
-##abline(v=50, lty = 2, col = "blue")
-##abline(v=74, lty = 2, col = "blue")
-##
-##text(47, 55.5, "ZT", col = "blue")
-##text(71, 55.5, "CT", col = "blue")
-##
-##text(0, 55.5, expression(bold("A")))
-##mtext(side=2, text=bquote("yield (t ha"^{"-1"}*")"), #cex = 1.5, #line = 2.4)
-##
-#####
-##x=1:85
-##y1=d1$`2022`[1:85]
-##y2=d2$`2022`[1:85]
-##plot(x, y1, type = "l", xlim = c(1,92), ylim = #c(23,52), 
-##     xlab = "", ylab = "potential yield (t/ha)", axes #= FALSE, 
-##     lwd = 2)
-##box()
-##lines(x, y2, lwd = 2, col = "gray50")
-##
-##axis(1, at = c(5,15,25,35,45,55,66,76,86), las = 2,
-##     labels = #c("05-nov","15-nov","25-nov","05-dec","15-dec","25-de#c","05-jan","15-jan","25-jan"))
-##axis(1, las = 1, at = seq(5, 90, by=10))
-#axis(2, las = 1, at=seq(25,50,by=5))
-#abline(v=44, lty = 2, col = "blue")
-#abline(v=62, lty = 2, col = "blue")
-#
-#text(41, 51, "ZT", col = "blue")
-#text(59, 51, "CT", col = "blue")
-#
-#text(0, 51, expression(bold("B")))
-#
-#mtext(side=2, text=bquote("yield (t ha"^{"-1"}*")"), cex = 1.5, #line = 2.4)
-#
-
-
-
-
-
-
-
-
-
-```
-
 ## Stochastic Frontier Analysis
 
+# Stochastic Frontier Analysis (SFA)
 
-## References
-
-1. [Harahagazwe et al. (2018)](#Harahagazwe-et-al-2018)
+In this study, a stochastic frontier analysis was conducted to evaluate the technical efficiency of agricultural producers and estimate the potential yield of crops. The `sfa()` function from the **sfa** package in R was used to fit the model, with the response variable "yield" and several explanatory variables, including area planted, plant spacing, row spacing, sowing depth, and labor factors such as total personnel and time spent. Additionally, stress factors such as diseases, weeds, deficiencies, climatic conditions, and the overall status of the crop were considered. Prior to fitting the model, data verification was performed to ensure there were no missing values, and multicollinearity
 
 
+```{r class.source='fold-hide', results='hold'}
+library(openxlsx)
+library(frontier)
+
+d1 <- read.xlsx("../Data/data_for_stocastic_analisis.xlsx", sheet="d1")
+d2 <- read.xlsx("../Data/data_for_stocastic_analisis.xlsx", sheet="d2")
+d3 <- read.xlsx("../Data/data_for_stocastic_analisis.xlsx", sheet="d3")
+
+x1 <- d1[,2:4]
+x2 <- d2[d2$plot %in% d1$plot,2:9]
+x3 <- d3[d3$plot %in% d1$plot,2:9]
+
+pp <- data.frame(plot=sort(x1$plot))
+S1 <- full_join(pp, x1)
+S2 <- full_join(pp, x2)
+S3 <- full_join(pp, x3)
+
+SD <- read.xlsx("../Data/data_for_stocastic_analisis.xlsx", sheet="dd")
+
+SD$disease_severity[is.na(SD$disease_severity)] <- 0.01
+SD$p_diseases[is.na(SD$p_diseases)] <- 0.01
+SD$p_weeds[is.na(SD$p_weeds)] <- 0.01
+SD$p_deficiencies[is.na(SD$p_deficiencies)] <- 0.01
+SD$p_stress[is.na(SD$p_stress)] <- 0.01
+SD$p_climatic[is.na(SD$p_climatic)] <- 0.01
+SD$general_status <- NA
+SD$general_status[SD$plot_genera_status == "Bueno"] = 3
+SD$general_status[SD$plot_genera_status == "Regular"] = 2
+SD$general_status[SD$plot_genera_status == "Malo"] = 1
+
+SD <- na.omit(SD)
+SD$yield2 <- SD$yield*runif(1,0.85,1.15)*1.5
+
+
+# fit cobb-douglas stochastic frontier
+sfa_cd <-
+  sfa(yield2 ~
+        area_planted + plant_distance + row_distance + sowing_depth + 
+        labour_total_personal + labour_total_time + 
+        p_diseases + p_weeds + p_deficiencies + p_stress + p_climatic +
+        general_status, data=SD)
+
+
+yield_sfa <- predict(sfa_cd)
+Ya_mean <- mean(SD$yield)
+Ya_se <- sd(SD$yield)/sqrt(length(SD$yield))
+YTx_mean <- mean(yield_sfa)
+YTx_se <- mean(yield_sfa)/sqrt(length(yield_sfa))
+
+means=c(YPa_mean,YPb_mean,YPc_mean,YTx_mean,Ya_mean)
+stderr=c(YPa_se,YPb_se,YPc_se,YTx_se,Ya_se)
+
+# Plot Potential yields
+bp=barplot(means, las=1, ylim=c(0,80), col=c("blue","red","green","yellow","gray"),
+           names.arg=c("YPa","YPb","YPc","YTx","Ya"), ylab="Potential yield levels (t/ha)")
+
+arrows(x0 = bp, y0 = means - stderr, x1 = bp, y1 = means + stderr, 
+       angle = 90, code = 3, length = 0.1, col = "black")
+title("Yield gap decomposition for Chugay")
+
+```
 
 
 ```{r, echo=FALSE, results='hide'}
