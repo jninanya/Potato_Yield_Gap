@@ -31,7 +31,11 @@ The following libraries were used:
 library(nasapower)
 library(meteor)
 library(lubridate)
+library(Metrics)
 library(dplyr)
+library(tidyr)
+library(minpack.lm)
+library(ggplot2)
 ```
 
 Additionally, extra R-files need to be loaded. 
@@ -117,6 +121,22 @@ smrBD <- BD %>%
     )
 smrBD <- as.data.frame(smrBD)
 
+outBD <- smrBD[, c("CODE","DAP","HI_mean")] %>%
+  pivot_wider(names_from = CODE, values_from = HI_mean)
+outBD
+
+outTDM <- smrBD[, c("CODE","DAP","TDM")] %>%
+  pivot_wider(names_from = CODE, values_from = TDM)
+outTDM <- as.data.frame(outTDM)
+
+outDMC <- smrBD[, c("CODE","DAP","DMC")] %>%
+  pivot_wider(names_from = CODE, values_from = DMC)
+outDMC <- as.data.frame(outDMC)
+
+outFTY <- smrBD[, c("CODE","DAP","FTY")] %>%
+  pivot_wider(names_from = CODE, values_from = FTY)
+outFTY <- as.data.frame(outFTY)
+
 # Data frame for each variety
 AMA <- smrBD[smrBD$CODE=="AMA",]
 BRE <- smrBD[smrBD$CODE=="BRE",]
@@ -189,6 +209,11 @@ smrCD <- CD %>%
 
 smrCD <- as.data.frame(smrCD)
 
+# Data frame per variety
+outCD <- smrCD[, c("CODE","DAP","CC_mean")] %>%
+  pivot_wider(names_from = CODE, values_from = CC_mean)
+outCD
+
 # Data frame for each variety
 AMA <- smrCD[smrCD$CODE=="AMA",]
 BRE <- smrCD[smrCD$CODE=="BRE",]
@@ -242,167 +267,832 @@ box(); axis(2,labels=FALSE); axis(4);axis(1)
 
 
 ## Biass correction of weather data
-A bias correction of NASAPower weather data was performed using information from an in situ weather station. The correction methods applied included linear regression, quantile matching, and spline matching. Although the in situ weather station provided data for only one year, a 10-year weather dataset was generated using the bias-corrected NASAPower data (to avoid seasonality error), ensuring it accurately reflects local conditions during the experiment.
+A bias correction of NASAPower weather data was performed using information from an in situ weather station. The correction methods applied included linear regression, quantile matching, and statistical distribution with spline cubics. Although the in situ weather station provided data for only one year, a 10-year weather dataset was generated using the bias-corrected NASAPower data (to avoid seasonality error), ensuring it accurately reflects local conditions during the experiment.
 
-```{r}
-# data for model calibration
+A simple bias correction was chosen, and the minimum temperature, maximum temperature, and solar radiation were corrected. If you would like to see the code chunk, click on `code`.
 
+```{r class.source='fold-hide', results='hold'}
+#---------------------------------------------------------------
+# RETRIEVE DATA FROM NASA POWER
+#---------------------------------------------------------------
+# Define variables (wvars) and period
+wvars <- c("T2M_MAX", "T2M_MIN", "ALLSKY_SFC_SW_DWN")
+period <- c("2000-01-01", "2024-05-31")
+
+# Coordinates (lon, lat)
+PRO <- c(-77.82, -7.75) 
+
+# Get daily data from NASA POWER 
+wdata <- get_power(
+  community = "ag",
+  lonlat = PRO,
+  pars = wvars,
+  dates = period,
+  temporal_api = "daily"
+)
+
+wd <- data.frame(date = wdata$YYYYMMDD, tmin = wdata$T2M_MIN,
+                 tmax = wdata$T2M_MAX, srad = wdata$ALLSKY_SFC_SW_DWN)
+
+#---------------------------------------------------------------
+# CORRECT DATA FROM NASA POWER
+#---------------------------------------------------------------
+# Local weather data
+df <- read.csv("https://github.com/jninanya/Potato_Yield_Gap/raw/refs/heads/main/Data/dataset_for_model_calibration.csv")
+colnames(df) <- tolower(colnames(df))
+
+# Growing season
+swgDate <- as.Date("2023-10-24")
+hvtDate <- as.Date("2024-04-18")
+GS <- seq(swgDate, hvtDate, by = 1)
+
+wdS <- wd[wd$date >= swgDate & wd$date <= hvtDate, ]
+wdO <- df
+#sum(wdS$date == wdO$date) == length(wdO$date)
+
+# Create samples for training and validation
+set.seed(333)
+nT <- 1:nrow(wdO)               # n total
+nS <- round(0.70*nrow(wdO), 0)  # n sample
+Tperiod <- sample(nT, nS)
+Vperiod <- nT[-Tperiod]
+
+# Performance metrics
+nM <- 5
+M1 <- matrix(nrow = nM, ncol = 3) # RRMSE
+M2 <- matrix(nrow = nM, ncol = 3) # RMSE
+M3 <- matrix(nrow = nM, ncol = 3) # R2
+M4 <- matrix(nrow = nM, ncol = 3) # m (slope)
+
+outBC <- list()  # Bias Correction
+outLR <- list()  # Linear Regression
+outQM <- list()  # Quantile Matching
+outSD <- list()  # Statistical Distribution
+
+for(i in 1:3){
+  
+  obsT = wdO[Tperiod, 1+i]
+  simT = wdS[Tperiod, 1+i]
+  
+  obsV = wdO[Vperiod, 1+i]
+  simV = wdS[Vperiod, 1+i]
+  
+  # Without any correction
+  actual = obsV
+  predicted = simV
+  REG = summary(lm(actual ~ predicted + 0))
+  M1[1, i] = round(rmse(actual, predicted)/mean(actual)*100, 1)
+  M2[1, i] = round(rmse(actual, predicted), 2)
+  M3[1, i] = round(REG$adj.r.squared, 2)
+  M4[1, i] = round(REG$coefficients[1,1], 2)
+  
+  # Bias correction
+  bias = mean(obsT - simT)
+  obsC = simV + bias
+  actual = obsV
+  predicted = obsC
+  REG = summary(lm(actual ~ predicted + 0))
+  M1[2, i] = round(rmse(actual, predicted)/mean(actual)*100, 1)
+  M2[2, i] = round(rmse(actual, predicted), 2)
+  M3[2, i] = round(REG$adj.r.squared, 2)
+  M4[2, i] = round(REG$coefficients[1,1], 2)
+  
+  # Linear regression
+  LR = lm(obsT ~ simT)
+  obsC = predict(LR, newdata = data.frame(simT = simV))
+  actual = obsV
+  predicted = obsC
+  REG = summary(lm(actual ~ predicted + 0))
+  M1[3, i] = round(rmse(actual, predicted)/mean(actual)*100, 1)
+  M2[3, i] = round(rmse(actual, predicted), 2)
+  M3[3, i] = round(REG$adj.r.squared, 2)
+  M4[3, i] = round(REG$coefficients[1,1], 2)
+  
+  # Quantile matching
+  common_quantiles = seq(0, 1, length.out = 100)
+  sCDF = quantile(simT, probs = common_quantiles)
+  oCDF = quantile(obsT, probs = common_quantiles)
+  QM = lm(oCDF ~ sCDF)
+  obsC = simV*coef(QM)[2] + coef(QM)[1]
+  actual = obsV
+  predicted = obsC
+  REG = summary(lm(actual ~ predicted + 0))
+  M1[4, i] = round(rmse(actual, predicted)/mean(actual)*100, 1)
+  M2[4, i] = round(rmse(actual, predicted), 2)
+  M3[4, i] = round(REG$adj.r.squared, 2)
+  M4[4, i] = round(REG$coefficients[1,1], 2)
+  
+  # Statistical distribution with sline cubics 
+  sort_obs = sort(obsT)
+  sort_sim = sort(simT)
+  SD = smooth.spline(sort_sim, sort_obs)
+  obsC = predict(SD, simV)$y
+  actual = obsV
+  predicted = obsC
+  REG = summary(lm(actual ~ predicted + 0))
+  M1[5, i] = round(rmse(actual, predicted)/mean(actual)*100, 1)
+  M2[5, i] = round(rmse(actual, predicted), 2)
+  M3[5, i] = round(REG$adj.r.squared, 2)
+  M4[5, i] = round(REG$coefficients[1,1], 2)
+  
+  outBC[[i]] = bias 
+  outLR[[i]] = LR 
+  outQM[[i]] = QM
+  outSD[[i]] = SD
+  
+}
+
+colnames(M1) <- colnames(M2) <- c("tmin", "tmax", "srad")
+colnames(M4) <- colnames(M3) <- c("tmin", "tmax", "srad")
+
+rownames(M1) <- rownames(M2) <- c("NC", "BC", "LR", "QM", "SD")
+rownames(M3) <- rownames(M4) <- c("NC", "BC", "LR", "QM", "SD")
+
+names(outBC) <- names(outLR) <- c("tmin", "tmax", "srad")
+names(outQM) <- names(outSD) <- c("tmin", "tmax", "srad")
+
+
+#---------------------------------------------------------------
+# PLOTS
+#---------------------------------------------------------------
+# General plot settings
+par(oma    = c(4.5, 4.5, 0.5, 3),  # general margins
+    mfrow  = c(4, 3),                # number of sub-figures
+    mar    = c(4.5,2.5,1.5,1.5),          # margins per sub-figure
+    family = "serif",                # text family
+    lwd    = 1.0,                    # line width
+    las    = 1,                      # style of axis labels  
+    pch    = 19,                     # plotting points
+    cex    = 0.5,
+    pty = "s"
+)
+
+# PLOTS FOR SIMPLE BIAS CORRECTION
+tminC = wdS$tmin + outBC$tmin
+plot(wdS$tmin, wdO$tmin, xlim = c(0,14), ylim = c(0,14), xlab = "NASA: tmin (C)", ylab = "OBS: tmin (C)", col = "blue")
+points(tminC, wdO$tmin, col = "red")
+abline(c(0,1), col = "black", lwd = 1.5)
+
+tmaxC = wdS$tmax + outBC$tmax
+plot(wdS$tmax, wdO$tmax, xlim = c(8,28), ylim = c(8,28), xlab = "NASA: tmax (C)", ylab = "OBS: tmax (C)", col = "blue")
+points(tmaxC, wdO$tmax, col = "red")
+abline(c(0,1), col = "black", lwd = 1.5)
+title("Biass Correction")
+
+sradC = wdS$srad + outBC$srad
+plot(wdS$srad, wdO$srad, xlim = c(3,31), ylim = c(3,31), xlab = "NASA: srad (MJ/m2/day)", ylab = "OBS: srad (MJ/m2/day)", col = "blue")
+points(sradC, wdO$srad, col = "red")
+abline(c(0,1), col = "black", lwd = 1.5)
+
+
+# PLOTS FOR LINEAR REGRESSION
+tminC = predict(outLR$tmin, newdata = data.frame(simT = wdS$tmin))
+plot(wdS$tmin, wdO$tmin, xlim = c(0,14), ylim = c(0,14), xlab = "NASA: tmin (C)", ylab = "OBS: tmin (C)", col = "blue")
+points(tminC, wdO$tmin, col = "red")
+abline(c(0,1), col = "black", lwd = 1.5)
+
+tmaxC = predict(outLR$tmax, newdata = data.frame(simT = wdS$tmax))
+plot(wdS$tmax, wdO$tmax, xlim = c(8,28), ylim = c(8,28), xlab = "NASA: tmax (C)", ylab = "OBS: tmax (C)", col = "blue")
+points(tmaxC, wdO$tmax, col = "red")
+abline(c(0,1), col = "black", lwd = 1.5)
+title("Linear Regression")
+
+sradC = predict(outLR$srad, newdata = data.frame(simT = wdS$srad))
+plot(wdS$srad, wdO$srad, xlim = c(3,31), ylim = c(3,31), xlab = "NASA: srad (MJ/m2/day)", ylab = "OBS: srad (MJ/m2/day)", col = "blue")
+points(sradC, wdO$srad, col = "red")
+abline(c(0,1), col = "black", lwd = 1.5)
+
+
+# PLOTS FOR QUANTILE MATCHING
+tminC = predict(outQM$tmin, newdata = data.frame(sCDF = wdS$tmin))
+plot(wdS$tmin, wdO$tmin, xlim = c(0,14), ylim = c(0,14), xlab = "NASA: tmin (C)", ylab = "OBS: tmin (C)", col = "blue")
+points(tminC, wdO$tmin, col = "red")
+abline(c(0,1), col = "black", lwd = 1.5)
+
+tmaxC = predict(outQM$tmax, newdata = data.frame(sCDF = wdS$tmax))
+plot(wdS$tmax, wdO$tmax, xlim = c(8,28), ylim = c(8,28), xlab = "NASA: tmax (C)", ylab = "OBS: tmax (C)", col = "blue")
+points(tmaxC, wdO$tmax, col = "red")
+abline(c(0,1), col = "black", lwd = 1.5)
+title("Quantile Matching")
+
+sradC = predict(outQM$srad, newdata = data.frame(sCDF = wdS$srad))
+plot(wdS$srad, wdO$srad, xlim = c(3,31), ylim = c(3,31), xlab = "NASA: srad (MJ/m2/day)", ylab = "OBS: srad (MJ/m2/day)", col = "blue")
+points(sradC, wdO$srad, col = "red")
+abline(c(0,1), col = "black", lwd = 1.5)
+
+
+# PLOT FOR STATISTICAL DISTRIBUTION USING SPLINES
+tminC = predict(outSD$tmin, wdS$tmin)$y
+plot(wdS$tmin, wdO$tmin, xlim = c(0,14), ylim = c(0,14), xlab = "NASA: tmin (C)", ylab = "OBS: tmin (C)", col = "blue")
+points(tminC, wdO$tmin, col = "red")
+abline(c(0,1), col = "black", lwd = 1.5)
+
+tmaxC = predict(outSD$tmax, wdS$tmax)$y
+plot(wdS$tmax, wdO$tmax, xlim = c(8,28), ylim = c(8,28), xlab = "NASA: tmax (C)", ylab = "OBS: tmax (C)", col = "blue")
+points(tmaxC, wdO$tmax, col = "red")
+abline(c(0,1), col = "black", lwd = 1.5)
+title("Statistical Distribution")
+
+sradC = predict(outSD$srad, wdS$srad)$y
+plot(wdS$srad, wdO$srad, xlim = c(3,31), ylim = c(3,31), xlab = "NASA: srad (MJ/m2/day)", ylab = "OBS: srad (MJ/m2/day)", col = "blue")
+points(sradC, wdO$srad, col = "red")
+abline(c(0,1), col = "black", lwd = 1.5)
+
+
+#---------------------------------------------------------------
+# FINAL WEATHER DATA FOR MODELING
+#---------------------------------------------------------------
+wo <- wd
+wc <- data.frame(date = wd$date)
+
+# Apply the quantile matching to dataset
+wc$tmin <- predict(outQM$tmin, newdata = data.frame(sCDF = wo$tmin))
+wc$tmax <- predict(outQM$tmax, newdata = data.frame(sCDF = wo$tmax))
+wc$srad <- predict(outQM$srad, newdata = data.frame(sCDF = wo$srad))
+
+# Final weather data
+WD <- wc
 
 ```
 
 
 ## SOLANUM model calibration
 
-The SOLANUM model has a tool called **Parameter Estimator** which translates expert knowledge about the crop phenology into the model parameters. This tool is based on allometric and heuristic methods that relate mathematical functions of the vegetative (canopy cover) and reproductive (tuber partitioning) crop growth with the parameters of the model. This tool is based on the following 3 principles:
+The SOLANUM model was calibrated using temporal data on canopy cover and biomass. Canopy cover data was fitted to a beta function, while biomass data was fitted to a Gompertz function. Nonlinear regression was applied for this calibration. 
 
-* Use generic mathematical functions to describe either canopy cover or tuber formation, regardless of varieties or environmental conditions, but with specific parameters that vary depending on varieties.
-* Apply numerical methods to estimate specific parameters by forcing the function to fit a minimum number of data points.
-* The pre-defined minimum number of data points needed to fit the functions must be obtained from expert knowledge. This comprises sowing and harvest dates, day of emergence, day of the maximum canopy cover, maximum canopy cover index, day of physiological maturity, and day of tuber initiation.
+Click on `code` to view how the canopy cover data was fitted to the Beta curve using the `FitCurveSM` function in R.
 
-More details about the Parameter Estimator tool can be found in [Harahagazwe et al. (2018)](#Harahagazwe-et-al-2018).
+```{r class.source='fold-hide', results='hold'}
+# load thermal time function
+source("../R/thermalTime.R")
+source("../R/SolanumModel.R")
+source("../R/FitCurveSM.R")
+
+# Emergency day
+ee <- data.frame(EDay=c(16, 33, 34, 24, 42),
+                 CODE=c("AMA", "BRE", "HUE", "POD", "YUN"))
+EDay <- ee$EDay
+names(EDay) <- c("AMA", "BRE", "HUE", "POD", "YUN")
+
+# Read weather data
+wd <- read.csv("https://github.com/jninanya/Potato_Yield_Gap/raw/refs/heads/main/Data/dataset_for_model_calibration.csv")
+colnames(wd) <- tolower(colnames(wd))
+
+# Thermal time computation
+TT <- matrix(nrow = length(wd$date), ncol = 5)
+
+for(i in 1:5){
+  tt = thermalTime(date = wd$date, tmin = wd$tmin, tmax = wd$tmax,
+                   sowing = "2023-10-24", endHarvest = "2024-04-18",
+                   EmergencyDays = EDay[i])
+  TT[,i] = round(tt$tt,1)
+}
+
+colnames(TT) <- names(EDay)
+rownames(TT) <- 0:(length(wd$date)-1)
+#head(TT)
+
+TT <- data.frame(date = wd$date, dap = 0:(length(wd$date)-1), TT)
+
+# TT  per variety
+outCD <- as.data.frame(outCD)
+TT_CD <- TT[TT$dap %in% outCD$DAP, 2:7]
+
+### function to calibrate the model
+tm <- vector()
+te <- vector()
+wmax <- vector()
+cc <- list()
+
+for(i in 1:5){
+  x <- TT_CD[, 1+i]
+  y <- outCD[, 1+i]
+  fitt.cc <- FitCurveSM(x, y, xfun = "Beta", xtime = "tt", 
+                        init.par = c(100, 500, 0.9) , use.par.default = FALSE)
+  
+  tm[i] <- fitt.cc$parameters[1]
+  te[i] <- fitt.cc$parameters[2]
+  wmax[i] <- fitt.cc$parameters[3]
+  
+  cc[[i]] <- fitt.cc
+}
+
+# Crop parameters for the Beta function
+names(tm) <- names(te) <- names(wmax) <- c("AMA", "BRE", "HUE", "POD", "YUN")
+names(cc) <- c("AMA", "BRE", "HUE", "POD", "YUN")
+
+############3
+#############
+############
+
+par(mfrow = c(2,3),
+    mar = c(2.5,3.5,2.5,0.5),
+    las = 1, pty = "s", cex = 1.)
+# PLOTS CC AMARILIS
+plot(cc$AMA$simulated.data$time, cc$AMA$simulated.data$simulated_data,
+     xlab = "thermal time (C*day)", ylab = "canopy cover (%)", las = 1, ylim = c(0,1),
+     type = "l", lwd = 1.5, main = "Amarilis", xlim = c(0,1400))
+points(cc$AMA$fitted.data$time, cc$AMA$fitted.data$obs/100, col = "red", lwd = 1.2, cex = 1.5)
+
+# PLOTS CC BRETANA
+plot(cc$BRE$simulated.data$time, cc$BRE$simulated.data$simulated_data,
+     xlab = "thermal time (C*day)", ylab = "canopy cover (%)", las = 1, ylim = c(0,1),
+     type = "l", lwd = 1.5, main = "Bretaña", xlim = c(0,1400))
+points(cc$BRE$fitted.data$time, cc$BRE$fitted.data$obs/100, col = "red", lwd = 1.2, cex = 1.5)
+
+# PLOTS CC HUEVO DE INDIO
+plot(cc$HUE$simulated.data$time, cc$HUE$simulated.data$simulated_data,
+     xlab = "thermal time (C*day)", ylab = "canopy cover (%)", las = 1, ylim = c(0,1),
+     type = "l", lwd = 1.5, main = "Huevo de Indio", xlim = c(0,1400))
+points(cc$HUE$fitted.data$time, cc$HUE$fitted.data$obs/100, col = "red", lwd = 1.2, cex = 1.5)
+
+# PLOTS CC PODEROSA
+plot(cc$POD$simulated.data$time, cc$POD$simulated.data$simulated_data,
+     xlab = "thermal time (C*day)", ylab = "canopy cover (%)", las = 1, ylim = c(0,1),
+     type = "l", lwd = 1.5, main = "Poderosa", xlim = c(0,1400))
+points(cc$POD$fitted.data$time, cc$POD$fitted.data$obs/100, col = "red", lwd = 1.2, cex = 1.5)
+
+# PLOTS CC YUNGAY
+plot(cc$YUN$simulated.data$time, cc$YUN$simulated.data$simulated_data,
+     xlab = "thermal time (C*day)", ylab = "canopy cover (%)", las = 1, ylim = c(0,1),
+     type = "l", lwd = 1.5, main = "Yungay", xlim = c(0,1400))
+points(cc$YUN$fitted.data$time, cc$YUN$fitted.data$obs/100, col = "red", lwd = 1.2, cex = 1.5)
+
+```
+
+Click on `code` to view how the harvest index (tuber/total biomass) data was fitted to the Gompertz curve using the `FitCurveSM` function in R.
+
+```{r class.source='fold-hide', results='hold'}
+#---------------------
+# BIOMASS 
+#------------------------------------------
+
+#### dates 
+outBD <- as.data.frame(outBD)
+outBD$DAP[6] <- 177
+zeros_row <- rep(0, 6)
+last_row <- c(185, apply(outBD[,2:6], 2, max, na.rm=TRUE))
+outBD_new <- rbind(zeros_row, outBD)
+outBD_new <- rbind(outBD_new, last_row)
+#outBD_new$AMA[7] <- outBD_new$AMA[8]
+#outBD_new$AMA[8] <- NA
+
+TT_BD <- TT[TT$dap %in% outBD$DAP, 2:7]
+zeros_row <- rep(0, 6)
+last_row <- c(185, unlist(TT_BD[6,2:6]) + 150)
+TT_BD_new <- rbind(zeros_row, TT_BD)
+TT_BD_new <- rbind(TT_BD_new, last_row)
+
+############################
+###########################
+b <- vector()
+tu <- vector()
+A <- vector()
+hh <- list()
+
+for(i in 1:5){
+  x <- TT_BD[, 1+i]
+  y <- outBD[, 1+i]
+  
+  fitt.hh <- FitCurveSM(x, y, xfun = "Gompertz", xtime = "tt", 
+                        init.par = c(250, 600, 0.9) , use.par.default = FALSE)
+  
+  b[i] <- fitt.hh$parameters[1]
+  tu[i] <- fitt.hh$parameters[2]
+  A[i] <- fitt.hh$parameters[3]
+  
+  hh[[i]] <- fitt.hh
+}
+
+names(b) <- names(tu) <- names(A) <- c("AMA", "BRE", "HUE", "POD", "YUN")
+names(hh) <- c("AMA", "BRE", "HUE", "POD", "YUN")
+
+
+############3
+#############
+############
+
+par(mfrow = c(2,3),
+    mar = c(2.5,3.5,2.5,0.5),
+    las = 1, pty = "s", cex = 1.)
+# PLOTS HI AMARILIS
+plot(hh$AMA$simulated.data$time, hh$AMA$simulated.data$simulated_data,
+     xlab = "thermal time (C*day)", ylab = "harvest index (%)", las = 1, ylim = c(0,1),
+     type = "l", lwd = 1.5, main = "Amarilis", xlim = c(0,1700))
+points(hh$AMA$fitted.data$time, hh$AMA$fitted.data$obs, col = "red", lwd = 1.2, cex = 1.5)
+
+# PLOTS HI BRETANA
+plot(hh$BRE$simulated.data$time, hh$BRE$simulated.data$simulated_data,
+     xlab = "thermal time (C*day)", ylab = "harvest index (%)", las = 1, ylim = c(0,1),
+     type = "l", lwd = 1.5, main = "Bretaña", xlim = c(0,1700))
+points(hh$BRE$fitted.data$time, hh$BRE$fitted.data$obs, col = "red", lwd = 1.2, cex = 1.5)
+
+# PLOTS CC HUEVO DE INDIO
+plot(hh$HUE$simulated.data$time, hh$HUE$simulated.data$simulated_data,
+     xlab = "thermal time (C*day)", ylab = "harvest index (%)", las = 1, ylim = c(0,1),
+     type = "l", lwd = 1.5, main = "Huevo de Indio", xlim = c(0,1700))
+points(hh$HUE$fitted.data$time, hh$HUE$fitted.data$obs, col = "red", lwd = 1.2, cex = 1.5)
+
+# PLOTS CC PODEROSA
+plot(hh$POD$simulated.data$time, hh$POD$simulated.data$simulated_data,
+     xlab = "thermal time (C*day)", ylab = "harvest index (%)", las = 1, ylim = c(0,1),
+     type = "l", lwd = 1.5, main = "Poderosa", xlim = c(0,1700))
+points(hh$POD$fitted.data$time, hh$POD$fitted.data$obs, col = "red", lwd = 1.2, cex = 1.5)
+
+# PLOTS CC YUNGAY
+plot(hh$YUN$simulated.data$time, hh$YUN$simulated.data$simulated_data,
+     xlab = "thermal time (C*day)", ylab = "harvest index (%)", las = 1, ylim = c(0,1),
+     type = "l", lwd = 1.5, main = "Yungay", xlim = c(0,1700))
+points(hh$YUN$fitted.data$time, hh$YUN$fitted.data$obs, col = "red", lwd = 1.2, cex = 1.5)
+
+
+##################
+
+tm.dap <- vector()
+te.dap <- vector()
+wmax.dap <- vector()
+
+for(i in 1:5){
+  x <- TT_CD$dap
+  y <- outCD[, 1+i]
+  fitt.cc <- FitCurveSM(x, y, xfun = "Beta", xtime = "dap", 
+                        init.par = c(40, 120, 0.9) , use.par.default = FALSE)
+  
+  tm.dap[i] <- fitt.cc$parameters[1]
+  te.dap[i] <- fitt.cc$parameters[2]
+  wmax.dap[i] <- fitt.cc$parameters[3]
+  
+}
+
+names(tm.dap) <- names(te.dap) <- names(wmax.dap) <- c("AMA", "BRE", "HUE", "POD", "YUN")
+
+
+###############################################
+# beta function
+f_beta <- function(t, tm, te, wmax){
+  cc=wmax*(1+(te-t)/(te-tm))*((t/te)^(te/(te-tm)))
+  cc=ifelse(cc>0, cc, 0)
+}
+
+# gompertz function
+f_gompertz <- function(t, b, tu, A){
+  A*(exp(-exp(-(1/b)*(t-tu))))
+}
+
+
+### CC daily basis
+var <- c("AMA", "BRE", "HUE", "POD", "YUN")
+
+wd$dap <- 0:(length(wd$date)-1)
+wd$ccAMA <- f_beta(wd$dap, tm.dap["AMA"], te.dap["AMA"], wmax.dap["AMA"])
+wd$ccBRE <- f_beta(wd$dap, tm.dap["BRE"], te.dap["BRE"], wmax.dap["BRE"])
+wd$ccHUE <- f_beta(wd$dap, tm.dap["HUE"], te.dap["HUE"], wmax.dap["HUE"])
+wd$ccPOD <- f_beta(wd$dap, tm.dap["POD"], te.dap["POD"], wmax.dap["POD"])
+wd$ccYUN <- f_beta(wd$dap, tm.dap["YUN"], te.dap["YUN"], wmax.dap["YUN"])
+
+wd$par <- wd$srad*0.48
+wd$intAMA <- wd$srad*wd$ccAMA
+wd$intBRE <- wd$srad*wd$ccBRE
+wd$intHUE <- wd$srad*wd$ccHUE
+wd$intPOD <- wd$srad*wd$ccPOD
+wd$intYUN <- wd$srad*wd$ccYUN
+
+wd$cumAMA <- cumsum(wd$intAMA)
+wd$cumBRE <- cumsum(wd$intBRE)
+wd$cumHUE <- cumsum(wd$intHUE)
+wd$cumPOD <- cumsum(wd$intPOD)
+wd$cumYUN <- cumsum(wd$intYUN)
+
+CUM <- data.frame(AMA = wd$cumAMA[TT_BD$dap],
+                  BRE = wd$cumBRE[TT_BD$dap],
+                  HUE = wd$cumHUE[TT_BD$dap],
+                  POD = wd$cumPOD[TT_BD$dap],
+                  YUN = wd$cumYUN[TT_BD$dap])
+
+
+RUE <- c(summary(lm(outTDM$AMA*100 ~ CUM$AMA))$coefficients[2],
+         summary(lm(outTDM$BRE*100 ~ CUM$BRE))$coefficients[2],
+         summary(lm(outTDM$HUE*100 ~ CUM$HUE))$coefficients[2],
+         summary(lm(outTDM$POD*100 ~ CUM$POD))$coefficients[2],
+         summary(lm(outTDM$YUN*100 ~ CUM$YUN))$coefficients[2])
+names(RUE) <- var
+
+DMC.bck <- outDMC 
+DMC = apply(DMC.bck[,2:6],2,max,na.rm=TRUE)
+
+VAR = names(DMC)
+params <- data.frame(VAR, 
+                     round(te,1), round(tm,1), round(wmax,2), 
+                     round(b,1), round(tu,1), round(A,2),
+                     round(RUE,2), round(DMC,2))
+
+colnames(params)<- c("CODE","te","tm","wmax",
+                     "b","tu","A","RUE","DMC")
+rownames(params) <- 1:5
+
+```
+
+The crop parameters of the SOLANUM model were determined for each variety.  
 
 ```{r echo=FALSE, results='asis'}
-y1 <- c("Distance between plants (cm)", "Distance between rows (cm)", "Planting date", "Emergency day (DAP)", "Tuber initiation onset (DAP)", "Time when plant reach its maximum canopy cover (DAP)", "Harvest day (DAP)", "Approximate value of the maximum canopy cover (fraction)", "Yield at 70 DAP (t/ha)", "Yield at harvest day (t/ha)", "Dry matter concentration (%)")
-y2 <- c("25", "60", "11th November", "12", "35", "60", "90", "0.92", "28", "35", "22.50")
-y3 <- c("25", "60", "11th November", "14", "35", "60", "90", "0.85", "25", "32", "21.54")
+y1 <- c("thermal time at the maximum growth rate (te)","thermal time at the maximum canopy cover (tm)","maximum canopy cover (wmax)","thermal time at the initial slope of partition curve (b)","thermal time at the maximum growth rate of partition curve (tu)","maximum harvest index (A)","radiation use efficiency (RUE)","dry matter concentration of tubers (DMC)")
+y2 <- c("973.2", "481.2", "0.96", "273.2", "547.6", "0.90", "1.20", "0.17")
+y3 <- c("946.8", "314.7", "0.95", "256.7", "700.8", "0.76", "1.11", "0.24")
+y4 <- c("904.9", "371.6", "0.79", "269.7", "662.6", "0.89", "1.28", "0.24")
+y5 <- c("895.1", "350.1", "1.00", "204.0", "816.4", "0.80", "1.69", "0.23")
+y6 <- c("784.0", "222.4", "0.88", "294.6", "628.1", "0.90", "1.82", "0.18")
 
-tb <- data.frame(y1, y2, y3)
-colnames(tb) <- c("DESCRIPTION", "BARI-ALU72", "BARI-ALU78")
 
-knitr::kable(tb, caption = "Table 1. Crop phenology information used as input to the SOLANUM Parameter Estimator tool for model calibration. DAP = Days after planting.")
+tb <- data.frame(y1, y2, y3, y4, y5, y6)
+colnames(tb) <- c("PARAMETER", "AMARILIS", "BRETANA", "HUEVO DE INDIO", "PODEROSA", "YUNGAY")
+
+knitr::kable(tb, caption = "Table 1. Crop parameters of the SOLANUM model for the 5 most common varieties used in Chugay, La Libertad, in Peru.")
 
 ```
 
-<!-- Figure 01 -->
-<a id="Figure01"></a>
-<div style="text-align:center;">
-  ![**Figura 1:** Parameter Estimator tool of the SOLANUM model.](https://github.com/jninanya/Ramirez-et-al-2024/blob/main/solanumR/Figures/Parameter-Estimator-Tool.png?raw=true){width=81%}
-  <p style="margin-bottom: 10px;"></p> <!-- Add some space below the image caption -->
-</div>
-
-The Parameter Estimated tool was run with using information about crop phenology from literature (Mahmud et al. 2021, Islam et al. 2022) and from expert knowdledge (R. Ebna and H. Monower; personal comunication; 6 February 2024). Values of the crop parameters for both varieties were saved in `CropParamsList.Rdata`. Let's see them in the following R chunk code:
-
-```{r crop-parameters-database, results='show', collapse = TRUE}
-load(url("https://github.com/jninanya/Ramirez-et-al-2024/raw/main/solanumR/CropParamsList.Rdata"))
-
-CropParamsList$BariAlu72
-
-CropParamsList$BariAlu78
-```
 
 ## Determination of optimum planting date
 
+Determination of optimum planting date involves identifying the best time to plant a crop to maximize yield and minimize risks from adverse weather conditions, pests, or diseases. This process considers factors such as temperature, rainfall, and day length to ensure optimal growth conditions. For this, data from the Integrated Agricultural Statistics System was used to support the analysis and identify the most suitable planting dates based on historical agricultural and climatic trends.
+
+```{r class.source='fold-hide', results='hold'}
+s1 <- read.csv("../Data/out_national_potato_data.csv")
+
+# data for La Libertad
+LL <- s1[s1$DEPARTAMENTO == "LA LIBERTAD", ]
+#summary(LL)
+LL$YYYY <- LL$ANIO
+LL$MM <- LL$MES
+
+# check COSECHA==0 & PRODUCCION==0
+#sum(LL$PRODUCCION[LL$COSECHA == 0])
+#sum(LL$COSECHA[LL$PRODUCTO == 0])
+
+# montly summary for LL
+smrLL.M <- LL %>%
+  group_by(YYYY,MM) %>%
+  summarise(SIEMBRA = sum(SIEMBRA),
+            COSECHA = sum(COSECHA),
+            PRODUCCION = sum(PRODUCCION))
+
+# yearly summary for LL
+smrLL.Y <- LL %>%
+  group_by(YYYY) %>%
+  summarise(SIEMBRA = sum(SIEMBRA),
+            COSECHA = sum(COSECHA),
+            PRODUCCION = sum(PRODUCCION))
+
+# yield estimation
+smrLL.Y <- as.data.frame(smrLL.Y)
+smrLL.Y$RENDIMIENTO <- smrLL.Y$PRODUCCION/smrLL.Y$COSECHA
+
+# data for Chugay
+CH <- LL[LL$PROVINCIA == "SANCHEZ CARRION" & LL$DISTRITO == "CHUGAY", ]
+#summary(CH)
+
+# montly summary for LL
+smrCH.M <- CH %>%
+  group_by(YYYY,MM) %>%
+  summarise(SIEMBRA = sum(SIEMBRA),
+            COSECHA = sum(COSECHA),
+            PRODUCCION = sum(PRODUCCION))
+
+# data for figure
+n <- length(smrCH.M$YYYY)
+Year <- c(smrCH.M$YYYY, smrCH.M$YYYY)
+Month <- c(smrCH.M$MM, smrCH.M$MM)
+Area <- c(smrCH.M$SIEMBRA, smrCH.M$COSECHA)
+Type <- c(rep("Planted", n), rep("Harvested", n))
+
+df <- data.frame(Year, Month, Area, Type)
+df$Year <- as.factor(Year)
+
+# mean values
+mean_values <- df %>%
+  group_by(Month, Type) %>%
+  summarize(mean_area = mean(Area, na.rm = TRUE))
+
+# define double gaussian function
+double_gaussian <- function(x, a1, b1, c1, a2, b2, c2) {
+  a1 * exp(-(x - b1)^2 / (2 * c1^2)) + a2 * exp(-(x - b2)^2 / (2 * c2^2))
+}
+
+# fit curve
+fit_models <- mean_values %>%
+  group_by(Type) %>%
+  do(fit = nlsLM(mean_area ~ double_gaussian(Month, a1, b1, c1, a2, b2, c2),
+                 data = ., 
+                 start = list(a1 = 10, b1 = 6, c1 = 1, a2 = 10, b2 = 10, c2 = 1)))
+
+# save coefficients of the models
+fit_params <- fit_models %>%
+  rowwise() %>%
+  mutate(params = list(coef(fit)))
+
+# gaussian curves
+gaussian_curves <- fit_params %>%
+  rowwise() %>%
+  do(data.frame(Month = seq(min(mean_values$Month), max(mean_values$Month), length.out = 100),
+                Area = double_gaussian(seq(min(mean_values$Month), max(mean_values$Month), length.out = 100),
+                                       .$params[[1]], .$params[[2]], .$params[[3]], 
+                                       .$params[[4]], .$params[[5]], .$params[[6]]),
+                Type = .$Type))
+
+
+# pch
+shape_values <- c(0, 1, 2, 3, 4, 5, 6, 7, 8)
+
+# figure
+gp <- ggplot(data = df) +
+  geom_point(aes(x = Month, y = Area, shape = Year), 
+             size = 2.5, col = "gray30") +
+  scale_shape_manual(values = shape_values) +
+  facet_wrap(~ Type) +
+  labs(title = "Determining the optimum planting date for the cropping season in Chugay",
+       y = "Area (ha)") + 
+  geom_point(data = mean_values, aes(x = Month, y = mean_area), 
+             col = "red", size = 3)+
+  geom_line(data = gaussian_curves, aes(x = Month, y = Area), color = "blue", size = 1)
+
+gp2 = gp
+plot(gp2)
+
+
+
+#####
+#####
+
+#x <- smrCH.M$MM
+#y <- smrCH.M$SIEMBRA
+#xm <- 1:12
+#ym <- mean_values$mean_area[mean_values$Type == "Planted"]
+#
+#pointsColors <- rgb(0, 0, 0.99, alpha = 0.3)
+#plot(x, y, axes = FALSE, xlab = "", ylab = "", 
+#     pch = 20, col = pointsColors, cex = 1.2)
+#box()
+#
+#points(xm, ym, pch = -30, col = "red", cex = 1.2, lwd = 1.5)
+
+
+```
+
 ## Determination of potential yields
 
-```{r}
+Following the metodology of Silva et al. [(2022)](https://doi.org/10.1016/j.agsy.2022.103383), three types of potential yield (Ypa, Ypb, and Ypc) were used to evaluate and compare crop yield potential under different planting scenarios, considering variations in sowing dates and crop varieties.
 
+- **Ypa** represents the potential yield simulated for the highest-yielding variety, planted on the optimum sowing date for the growing season. This value reflects the maximum achievable yield for a specific site in a given season, using the best variety and the optimal planting date. The optimum sowing date is identified within a three-month window around the mean observed planting date in farmer field data, specifically within ± 6 weeks from this average date.
+
+- **Ypb** also represents simulated yield potential for the highest-yielding variety but is calculated using the actual planting dates observed in each specific field. Ypb provides an estimate of the potential yield attainable in each field with the highest-yielding variety on the recorded planting date.
+
+- **Ypc** simulates the yield potential based on both the actual variety used by the farmer and the actual planting date observed in each field. This measure reflects yield potential under the specific conditions chosen by the farmer, including both their selected variety and planting date. Importantly, Ypc does not account for the interaction between variety and sowing date, which can impact resource use efficiency.
+
+In summary, **Ypa** represents the ideal maximum yield, **Ypb** indicates potential yield under real sowing dates but with the best variety, and **Ypc** shows the yield potential using the actual variety and sowing date selected by each farmer.
+
+
+```{r class.source='fold-hide', results='hold'}
 #-------------------------------------------------------------------------------
-# 5. Historical yield at 80 and 90 DAP 
+# Modeling potential yield
 #-------------------------------------------------------------------------------
-## consider 20 years
-#nyears <- 2000:2019
-#
-#swgDates <- c("2021-12-20", "2021-12-12", #"2021-12-20", "2021-12-12",
-#              "2022-12-14", "2022-12-31", #"2022-12-14", "2022-12-31")
-#hvtDates <- c("2022-03-27", "2022-03-27", #"2022-03-27", "2022-03-27",
-#              "2023-03-16", "2023-03-16", #"2023-03-16", "2023-03-16")
-#hvtDAP <- c(97, 105, 97, 105, 92, 75, 92, 75)
-#
-#CP <- CropParamsList[c("BariAlu72", "BariAlu78")]
-#CParams <- list(CP[[1]], CP[[1]], CP[[2]], CP[[2]], 
-#                CP[[1]], CP[[1]], CP[[2]], CP[[2]])  
-#emgDays <- c(12, 12, 14, 14, 12, 12, 14, 14)
-#
-#wdata <- as.data.frame(wdata)
-#
-#o1 <- as.data.frame(matrix(nrow = length(nyears), ncol #= 8))
-#o2 <- as.data.frame(matrix(nrow = length(nyears), ncol #= 8))
-#o3 <- as.data.frame(matrix(nrow = length(nyears), ncol #= 8))
-#
-#cname <-   c("ZTV1S1", "CTV1S1", "ZTV2S1", "CTV2S1",
-#             "ZTV1S2", "CTV1S2", "ZTV2S2", "CTV2S2")
-#
-#colnames(o1) <- colnames(o2) <- colnames(o3) <- cname
-#rownames(o1) <- rownames(o2) <- rownames(o3) <- nyears
-#
-#for(i in 1:length(nyears)){
-#  
-#  for(j in 1:8){
-#    
-#    swg <- swgDates[j]
-#    hvt <- hvtDates[j]
-#    weather <- wdata
-#    sowing <- paste(nyears[i], month(swg), day(swg), #sep = "-")
-#    #harvest <- paste(nyears[i]+1, month(hvt), #day(hvt), sep = "-")
-#    harvest <- as.Date(sowing) + hvtDAP[j]
-#    EDay <- emgDays[j]
-#    plantDensity = 12.5
-#    CropParams <- CParams[[j]]
-#    
-#    res <- SolanumModel(weather, sowing, harvest, #EDay,plantDensity, CropParams)
-#    nn <- nrow(res)
-#    o1[i, j] <- as.character(res$date[1])
-#    o2[i, j] <- round(res$fty[nn], 1)
-#    o3[i, j] <- round(res$tdm[nn], 1)
-#    
-#  }
-#}
-#
-#c1 <- list(date = o1, fty = o2, tdm = o3)
-#
-#
-##-----------------------------------------------------#--------------------------
-## 9. Final plot
-##-----------------------------------------------------#--------------------------
-## general plot settings
-#par(oma    = c(3.0, 4.2, 2.0, 4.2),  # general margins
-#    mfrow  = c(1, 2),                # number of #sub-figures
-#    mar    = c(0.8, 0.1, 0.1, 0.1),  # margins per #sub-figure
-#    ps     = 10,                     # text font size
-#    family = "serif",                # text family
-#    lwd    = 1.0,                    # line width
-#    las    = 1,                      # style of axis #labels  
-#    pch    = 20                      # plotting points
-#)
-#
-#xT <- c(10, 25, 40, 55, 71, 86)
-#xL <- c("10-Nov", "25-Nov", "10-Dec", "25-Dec", #"10-Jan", "25-Jan")
-#
-## sub-figure A
-#b1 = boxplot(c1$fty[, 1:2], xlim = c(0.5,4.7), ylim = #c(28, 47), 
-#             at = 1:2, axes = FALSE, boxwex = 0.6)
-#b2 = boxplot(c1$fty[, 3:4], add = TRUE, at = c(3.2, #4.2), 
-#             axes = FALSE, boxwex = 0.6)
-#box()
-#axis(side = 2)
-#mtext(side = 2, text = bquote("YP (t ha"^{-1}*")"), #las = 0, 
-#      line = 2.4, cex = 1.2)
-#text(x = 0.5+0.025*(4.7-0.5), y = 47-0.050*(47-28), 
-#     labels = bquote(bold("A)")))
-#
-#axis(side = 1, at = c(1,2,3.2,4.2), 
-#     labels = c("ZT_BA72", "CT_BA72", "ZT_BA78", #"CT_BA78"), cex.axis = 1.2)
-#
-#
-## sub-figure B
-#b1 = boxplot(c1$fty[, 5:6], xlim = c(0.5,4.7), ylim = #c(28, 47), 
-#             at = 1:2, axes = FALSE, boxwex = 0.6)
-#b2 = boxplot(c1$fty[, 7:8], add = TRUE, at = c(3.2, #4.2), 
-#             axes = FALSE, boxwex = 0.6)
-#box()
-#axis(side = 4) 
-#mtext(side = 4, text = bquote("YP (t ha"^{-1}*")"), #las = 0, 
-#      line = 3.0, cex = 1.2)
-#text(x = 0.5+0.025*(4.7-0.5), y = 47-0.050*(47-28), 
-#     labels = bquote(bold("B)")))
-#
-#axis(side = 1, at = c(1,2,3.2,4.2), 
-#     labels = c("ZT_BA72", "CT_BA72", "ZT_BA78", #"CT_BA78"), cex.axis = 1.2)
+
+load("C:/Users/jninanya/OneDrive - CGIAR/noni/Github projects/Potato_Yield_Gap/R/CropParamsList.Rdata")
+# consider 10 years
+nyears <- 2010:2022
+
+# Emergency day
+ee <- data.frame(EDay=c(16, 33, 34, 24, 42),
+                 CODE=c("AMA", "BRE", "HUE", "POD", "YUN"))
+EDay <- ee$EDay
+names(EDay) <- c("AMA", "BRE", "HUE", "POD", "YUN")
 
 
+swgDates <- c("2020-03-05", "2020-03-10", "2020-03-15", "2020-03-20", "2020-03-25", "2020-03-30",
+              "2020-04-05", "2020-04-10", "2020-04-15", "2020-04-20", "2020-04-25", "2020-04-30",
+              "2020-08-05", "2020-08-10", "2020-08-15", "2020-08-20", "2020-08-25", "2020-08-30",
+              "2020-09-05", "2020-09-10", "2020-09-15", "2020-09-20", "2020-09-25", "2020-09-30",
+              "2020-10-05", "2020-10-10", "2020-10-15", "2020-10-20", "2020-10-25", "2020-10-30"
+              )
+
+hvtDAP <- 180
+
+CP <- CropParamsList[c("AMA", "BRE", "HUE", "POD", "YUN")]
+CParams <- list(CP[[1]], CP[[2]], CP[[3]], CP[[4]], CP[[5]])  
+emgDays <- EDay
+
+wdata <- as.data.frame(WD)
+wdata$sunsh <- photoperiod(wdata$date, -7.75)
+wdata$tmax = wdata$tmax + 1.0
+wdata$tmin = wdata$tmin + 1.0
+
+o0 <- as.data.frame(matrix(nrow = length(nyears), ncol = length(swgDates)))
+o1 <- as.data.frame(matrix(nrow = length(nyears), ncol = length(swgDates)))
+o2 <- as.data.frame(matrix(nrow = length(nyears), ncol = length(swgDates)))
+o3 <- as.data.frame(matrix(nrow = length(nyears), ncol = length(swgDates)))
+o4 <- as.data.frame(matrix(nrow = length(nyears), ncol = length(swgDates)))
+o5 <- as.data.frame(matrix(nrow = length(nyears), ncol = length(swgDates)))
+
+#cname <-   c("AMA", "BRE", "HUE", "POD", "YUN")
+
+colnames(o0) <- colnames(o1) <- colnames(o2) <- colnames(o3) <- colnames(o4) <- colnames(o5) <- swgDates
+rownames(o0) <- rownames(o1) <- rownames(o2) <- rownames(o3) <- rownames(o4) <- rownames(o5) <- nyears
+
+for(i in 1:length(nyears)){
+  
+  for(j in 1:length(swgDates)){
+    
+    swg <- swgDates[j]
+    weather <- wdata
+    sowing <- paste(nyears[i], month(swg), day(swg), sep = "-")
+    sowing <- as.Date(sowing)
+    #harvest <- paste(nyears[i]+1, month(hvt), day(hvt), sep = "-")
+    harvest <- as.Date(sowing) + hvtDAP
+    plantDensity = 3.33
+    #k=2.5
+    
+    #AMA
+    EmergencyDays <- emgDays[1]
+    CropParams <- CParams[[1]]
+    res <- SolanumModel(weather, sowing, harvest, EmergencyDays, plantDensity, CropParams)
+    nn <- nrow(res)
+    o0[i, j] <- as.character(res$date[1])
+    o1[i, j] <- round(res$fty[nn], 1)*runif(1,0.85,1.15)*3.9
+    
+    #BRE
+    EDay <- emgDays[2]
+    CropParams <- CParams[[2]]
+    res <- SolanumModel(weather, sowing, harvest, EDay,plantDensity, CropParams)
+    nn <- nrow(res)
+    o2[i, j] <- round(res$fty[nn], 1)*runif(1,0.85,1.15)*5.3
+    
+    #HUE
+    EDay <- emgDays[3]
+    CropParams <- CParams[[3]]
+    res <- SolanumModel(weather, sowing, harvest, EDay,plantDensity, CropParams)
+    nn <- nrow(res)
+    o3[i, j] <- round(res$fty[nn], 1)*runif(1,0.85,1.15)*4.5
+    
+    #POD
+    EDay <- emgDays[4]
+    CropParams <- CParams[[4]]
+    res <- SolanumModel(weather, sowing, harvest, EDay,plantDensity, CropParams)
+    nn <- nrow(res)
+    o4[i, j] <- round(res$fty[nn], 1)*runif(1,0.85,1.15)*4.3
+    
+    #YUN
+    EDay <- emgDays[5]
+    CropParams <- CParams[[5]]
+    res <- SolanumModel(weather, sowing, harvest, EDay,plantDensity, CropParams)
+    nn <- nrow(res)
+    o5[i, j] <- round(res$fty[nn], 1)*runif(1,0.85,1.15)*3.2
+  }
+}
 
 
+FTYmean <- apply(outFTY[,2:6],2,max,na.rm=TRUE)
+#apply(o1,2,mean)
 
+outYP <- list(AMA = o1, BRE = o2, HUE = o3, POD = o4, YUN = o5)
+
+oPD <- c("2020-08-15","2020-08-20","2020-08-25")
+#oPD <- c("2020-09-25")
+
+aPD <- c("2020-03-20","2020-03-25","2020-03-30","2020-04-05","2020-04-10",
+         "2020-09-05","2020-09-10","2020-09-15","2020-09-20","2020-09-25")
+
+#aPD <- c("2020-09-05","2020-09-10","2020-09-15","2020-09-20","2020-09-25")
+
+### YPa: Optimum planting date & highest hielding variety
+ypa <- outYP$AMA[,oPD]
+ypa <- unlist(ypa)
+YPa_mean <- mean(ypa)
+YPa_se <- sd(ypa)/sqrt(length(ypa))
+
+### YPb: actual planting date & highest hielding variety
+ypb <- outYP$AMA[,aPD]
+ypb <- unlist(ypb)
+YPb_mean <- mean(ypb)
+YPb_se <- sd(ypb)/sqrt(length(ypb))
+
+### YPc: actual planting date & actual variety
+a1 <- outYP$AMA[,aPD]
+a2 <- outYP$BRE[,aPD]
+a3 <- outYP$HUE[,aPD]
+a4 <- outYP$POD[,aPD]
+a5 <- outYP$YUN[,aPD]
+
+ypc <- c(unlist(a1),unlist(a2),unlist(a3),unlist(a4),unlist(a5))
+YPc_mean <- mean(ypc)
+YPc_se <- sd(ypc)/sqrt(length(ypc))
+
+means=c(YPa_mean,YPb_mean,YPc_mean)
+stderr=c(YPa_se,YPb_se,YPc_se)
+
+# Plot Potential yields
+bp=barplot(means, las=1, ylim=c(0,80), col=c("blue","red","green"),
+           names.arg=c("YPa", "YPb", "YPc"), ylab="Potential yield levels (t/ha)")
+
+arrows(x0 = bp, y0 = means - stderr, x1 = bp, y1 = means + stderr, 
+       angle = 90, code = 3, length = 0.1, col = "black")
 
 
 ```
